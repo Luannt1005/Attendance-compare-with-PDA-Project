@@ -1,0 +1,100 @@
+﻿{
+    "data":  [
+                 {
+                     "id":  1,
+                     "code":  "OS",
+                     "name":  "OS Shift",
+                     "startTime":  "07:30",
+                     "endTime":  "16:00",
+                     "otPreStart":  null,
+                     "otPreEnd":  null,
+                     "otPostStart":  "16:00",
+                     "otPostEnd":  "20:00",
+                     "isActive":  true
+                 },
+                 {
+                     "id":  2,
+                     "code":  "S1",
+                     "name":  "S1 Shift",
+                     "startTime":  "06:00",
+                     "endTime":  "14:00",
+                     "otPreStart":  null,
+                     "otPreEnd":  null,
+                     "otPostStart":  "14:00",
+                     "otPostEnd":  "18:00",
+                     "isActive":  true
+                 },
+                 {
+                     "id":  3,
+                     "code":  "S2",
+                     "name":  "S2 Shift",
+                     "startTime":  "14:00",
+                     "endTime":  "22:00",
+                     "otPreStart":  "10:00",
+                     "otPreEnd":  "14:00",
+                     "otPostStart":  null,
+                     "otPostEnd":  null,
+                     "isActive":  true
+                 },
+                 {
+                     "id":  4,
+                     "code":  "S3",
+                     "name":  "S3 Shift",
+                     "startTime":  "22:00",
+                     "endTime":  "06:00",
+                     "otPreStart":  "18:00",
+                     "otPreEnd":  "22:00",
+                     "otPostStart":  null,
+                     "otPostEnd":  null,
+                     "isActive":  true
+                 },
+                 {
+                     "id":  5,
+                     "code":  "S5",
+                     "name":  "S5 Shift",
+                     "startTime":  "07:00",
+                     "endTime":  "15:00",
+                     "otPreStart":  null,
+                     "otPreEnd":  null,
+                     "otPostStart":  "15:00",
+                     "otPostEnd":  "19:00",
+                     "isActive":  true
+                 },
+                 {
+                     "id":  6,
+                     "code":  "S5A",
+                     "name":  "S5A Shift",
+                     "startTime":  "19:00",
+                     "endTime":  "03:00",
+                     "otPreStart":  "18:00",
+                     "otPreEnd":  "19:00",
+                     "otPostStart":  null,
+                     "otPostEnd":  null,
+                     "isActive":  true
+                 },
+                 {
+                     "id":  7,
+                     "code":  "S3D",
+                     "name":  "S3D Shift",
+                     "startTime":  "19:30",
+                     "endTime":  "03:30",
+                     "otPreStart":  "18:00",
+                     "otPreEnd":  "19:30",
+                     "otPostStart":  "03:30",
+                     "otPostEnd":  "05:00",
+                     "isActive":  true
+                 },
+                 {
+                     "id":  8,
+                     "code":  "S5B",
+                     "name":  "S5B Shift",
+                     "startTime":  "07:30",
+                     "endTime":  "15:30",
+                     "otPreStart":  "06:00",
+                     "otPreEnd":  "07:30",
+                     "otPostStart":  "15:30",
+                     "otPostEnd":  "18:00",
+                     "isActive":  true
+                 }
+             ]
+}

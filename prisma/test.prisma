@@ -1,0 +1,12 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://postgres:Luannt_1005@localhost:5432/Attendance_OT?schema=public"
+}
+
+model Test {
+  id Int @id
+}

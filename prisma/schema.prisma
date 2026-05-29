@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+}
+
+model User {
+  id                       Int                     @id @default(autoincrement())
+  roleId                   Int
+  username                 String                  @unique
+  passwordHash             String
+  fullName                 String
+  isActive                 Boolean                 @default(true)
+  auditLogs                AuditLog[]
+  leaderHistories          EmployeeLeaderHistory[]
+  sentTransferRequests     TransferRequest[]       @relation("FromLeaderRelation")
+  receivedTransferRequests TransferRequest[]       @relation("ToLeaderRelation")
+  role                     Role                    @relation(fields: [roleId], references: [id])
+}
+
+model Department {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  employees Employee[]
+  lines     Line[]
+}
+
+model Line {
+  id           Int        @id @default(autoincrement())
+  departmentId Int
+  name         String
+  employees    Employee[]
+  department   Department @relation(fields: [departmentId], references: [id])
+}
+
+model Employee {
+  id               Int                     @id @default(autoincrement())
+  employeeCode     String                  @unique
+  fullName         String
+  departmentId     Int
+  lineId           Int
+  status           String                  @default("Active")
+  joinDate         DateTime                @db.Date
+  resignDate       DateTime?               @db.Date
+  pic              String?
+  mgt              String?
+  employeeType     String?
+  gender           String?
+  mu               String?
+  supervisor       String?
+  title            String?
+  vendor           String?
+  zone             String?
+  shiftLeader      String?
+  attendances      Attendance[]
+  clerkAttendances ClerkAttendance[]
+  clerkOvertimes   ClerkOvertime[]
+  department       Department              @relation(fields: [departmentId], references: [id])
+  line             Line                    @relation(fields: [lineId], references: [id])
+  leaderHistories  EmployeeLeaderHistory[]
+  fingerprints     Fingerprint[]
+  overtimes        Overtime[]
+  transferRequests TransferRequest[]
+  lineDatas        LineData[]
+}
+
+model EmployeeLeaderHistory {
+  id         Int       @id @default(autoincrement())
+  employeeId Int
+  leaderId   Int
+  startDate  DateTime  @db.Date
+  endDate    DateTime? @db.Date
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  leader     User      @relation(fields: [leaderId], references: [id])
+
+  @@index([leaderId, startDate, endDate])
+  @@index([startDate, endDate])
+}
+
+model Attendance {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  recordDate DateTime @db.Date
+  status     String
+  isLocked   Boolean  @default(false)
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, recordDate])
+  @@index([recordDate])
+}
+
+model Overtime {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  recordDate DateTime @db.Date
+  hours      Float
+  timeType   String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, recordDate])
+  @@index([recordDate])
+}
+
+model ClerkAttendance {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  recordDate DateTime @db.Date
+  status     String
+  isLocked   Boolean  @default(false)
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, recordDate])
+  @@index([recordDate])
+}
+
+model ClerkOvertime {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  recordDate DateTime @db.Date
+  hours      Float
+  timeType   String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, recordDate])
+  @@index([recordDate])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  action    String
+  entity    String
+  entityId  Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model TransferRequest {
+  id           Int      @id @default(autoincrement())
+  employeeId   Int
+  fromLeaderId Int
+  toLeaderId   Int
+  targetMonth  String
+  status       String   @default("Pending")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  fromLeader   User     @relation("FromLeaderRelation", fields: [fromLeaderId], references: [id])
+  toLeader     User     @relation("ToLeaderRelation", fields: [toLeaderId], references: [id])
+}
+
+model Fingerprint {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  recordDate DateTime @db.Date
+  timeString String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, recordDate])
+  @@index([recordDate])
+}
+
+model Shift {
+  id          Int     @id @default(autoincrement())
+  code        String  @unique
+  name        String?
+  startTime   String?
+  endTime     String?
+  otPreStart  String?
+  otPreEnd    String?
+  otPostStart String?
+  otPostEnd   String?
+  isActive    Boolean @default(true)
+  isLeave     Boolean @default(false)
+}
+
+model LineData {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  recordDate DateTime @db.Date
+  lineIn     String?
+  lineOut    String?
+  shift      String?
+  line       String?
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, recordDate])
+  @@index([recordDate])
+}
+
