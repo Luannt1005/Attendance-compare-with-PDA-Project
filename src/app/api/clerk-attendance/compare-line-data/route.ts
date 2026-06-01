@@ -56,6 +56,47 @@ export async function POST(req: Request) {
         const shiftMap = new Map();
         for (const s of shifts) shiftMap.set(s.code.trim().toUpperCase(), s);
 
+        // Auto-create missing employees so NOTHING is skipped
+        const existingEmployees = await prisma.employee.findMany({
+            where: { employeeCode: { in: employeeCodes } }
+        });
+        const existingCodes = new Set(existingEmployees.map(e => e.employeeCode));
+        const missingCodes = Array.from(new Set(employeeCodes.filter(code => !existingCodes.has(code))));
+
+        if (missingCodes.length > 0) {
+            let dummyDept = await prisma.department.findUnique({ where: { name: 'Unknown Department' } });
+            if (!dummyDept) {
+                dummyDept = await prisma.department.create({ data: { name: 'Unknown Department' } });
+            }
+
+            let dummyLine = await prisma.line.findFirst({ where: { departmentId: dummyDept.id, name: 'Unknown Line' } });
+            if (!dummyLine) {
+                dummyLine = await prisma.line.create({ data: { departmentId: dummyDept.id, name: 'Unknown Line' } });
+            }
+
+            const codeToNameMap = new Map();
+            for (const row of employeeRows) {
+                const code = String(row[0]).trim();
+                if (code && !codeToNameMap.has(code)) {
+                    const name = row[1] ? String(row[1]).trim() : 'Unknown Employee';
+                    codeToNameMap.set(code, name);
+                }
+            }
+
+            await prisma.$transaction(
+                missingCodes.map(code => prisma.employee.create({
+                    data: {
+                        employeeCode: code,
+                        fullName: codeToNameMap.get(code) || 'Unknown Employee',
+                        departmentId: dummyDept.id,
+                        lineId: dummyLine.id,
+                        joinDate: new Date(),
+                        status: 'Active'
+                    }
+                }))
+            );
+        }
+
         const employees = await prisma.employee.findMany({
             where: { employeeCode: { in: employeeCodes } }
         });

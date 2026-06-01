@@ -45,3 +45,7 @@ next-env.d.ts
 # claude config
 .claude/
 
+# archive files
+*.zip
+
+
