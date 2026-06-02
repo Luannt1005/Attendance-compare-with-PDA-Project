@@ -193,8 +193,11 @@ export async function POST(req: Request) {
         const fileDates = new Set<string>();
         let totalRowsWithHeaders = 0;
 
+        const codeToNameMap = new Map<string, string>();
+
         for (const row of rawData) {
             let staffNo = getFieldValue(row, staffNoKeys);
+            let nameVal = getFieldValue(row, ['Họ và Tên', 'Ho va Ten', 'Full Name', 'FullName', 'Name', 'Tên', 'Ten']);
             let dateVal = getFieldValue(row, dateValKeys);
             let clockIn = getFieldValue(row, clockInKeys);
             let clockOut = getFieldValue(row, clockOutKeys);
@@ -206,6 +209,11 @@ export async function POST(req: Request) {
             let dateStr = parseExcelDate(dateVal, filterDate);
 
             if (!dateStr || !employeeCode) continue;
+
+            const name = nameVal ? String(nameVal).trim() : 'Unknown Employee';
+            if (name && name !== 'Unknown Employee' && name !== 'Unknown') {
+                codeToNameMap.set(employeeCode.toLowerCase(), name);
+            }
 
             fileDates.add(dateStr);
 
@@ -257,7 +265,7 @@ export async function POST(req: Request) {
                     { employeeCode: { in: employeeCodes.map(c => c.toUpperCase()) } }
                 ]
             },
-            select: { id: true, employeeCode: true }
+            select: { id: true, employeeCode: true, fullName: true }
         });
 
         // Map keys case-insensitively for lookup
@@ -282,7 +290,7 @@ export async function POST(req: Request) {
                 missingCodes.map(code => prisma.employee.create({
                     data: {
                         employeeCode: code,
-                        fullName: 'Unknown Employee',
+                        fullName: codeToNameMap.get(code.toLowerCase()) || 'Unknown Employee',
                         departmentId: dummyDept.id,
                         lineId: dummyLine.id,
                         joinDate: new Date(),
@@ -292,6 +300,25 @@ export async function POST(req: Request) {
             );
             // Add new ones to map
             newEmps.forEach(e => empMap.set(e.employeeCode.toLowerCase(), e.id));
+        }
+
+        // Auto-update existing employees who have 'Unknown Employee' or 'Unknown' as full name
+        const empsToUpdate = dbEmps.filter(e => e.fullName === 'Unknown Employee' || e.fullName === 'Unknown');
+        if (empsToUpdate.length > 0) {
+            const updateOps = empsToUpdate.map(e => {
+                const newName = codeToNameMap.get(e.employeeCode.toLowerCase());
+                if (newName && newName !== 'Unknown Employee' && newName !== 'Unknown') {
+                    return prisma.employee.update({
+                        where: { id: e.id },
+                        data: { fullName: newName }
+                    });
+                }
+                return null;
+            }).filter(Boolean) as any[];
+
+            if (updateOps.length > 0) {
+                await prisma.$transaction(updateOps);
+            }
         }
 
         // Delete existing LineData for the dates we are importing

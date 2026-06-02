@@ -100,6 +100,15 @@ export async function POST(req: Request) {
         const shiftMap = new Map();
         for (const s of shifts) shiftMap.set(s.code.trim().toUpperCase(), s);
 
+        const codeToNameMap = new Map<string, string>();
+        for (const row of employeeRows) {
+            const code = String(row[0]).trim();
+            if (code && !codeToNameMap.has(code)) {
+                const name = row[1] ? String(row[1]).trim() : 'Unknown Employee';
+                codeToNameMap.set(code, name);
+            }
+        }
+
         // Auto-create missing employees so NOTHING is skipped
         const existingEmployees = await prisma.employee.findMany({
             where: { employeeCode: { in: employeeCodes } }
@@ -118,15 +127,6 @@ export async function POST(req: Request) {
                 dummyLine = await prisma.line.create({ data: { departmentId: dummyDept.id, name: 'Unknown Line' } });
             }
 
-            const codeToNameMap = new Map();
-            for (const row of employeeRows) {
-                const code = String(row[0]).trim();
-                if (code && !codeToNameMap.has(code)) {
-                    const name = row[1] ? String(row[1]).trim() : 'Unknown Employee';
-                    codeToNameMap.set(code, name);
-                }
-            }
-
             await prisma.$transaction(
                 missingCodes.map(code => prisma.employee.create({
                     data: {
@@ -139,6 +139,25 @@ export async function POST(req: Request) {
                     }
                 }))
             );
+        }
+
+        // Auto-update existing employees who have 'Unknown Employee' or 'Unknown' as full name
+        const empsToUpdate = existingEmployees.filter(e => e.fullName === 'Unknown Employee' || e.fullName === 'Unknown');
+        if (empsToUpdate.length > 0) {
+            const updateOps = empsToUpdate.map(e => {
+                const newName = codeToNameMap.get(e.employeeCode);
+                if (newName && newName !== 'Unknown Employee' && newName !== 'Unknown') {
+                    return prisma.employee.update({
+                        where: { id: e.id },
+                        data: { fullName: newName }
+                    });
+                }
+                return null;
+            }).filter(Boolean) as any[];
+
+            if (updateOps.length > 0) {
+                await prisma.$transaction(updateOps);
+            }
         }
 
         const employees = await prisma.employee.findMany({
