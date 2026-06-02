@@ -78,15 +78,7 @@ export default function LoginPage() {
                     </p>
                 </div>
 
-                {/* Next.js Badge in the bottom left */}
-                <div className="relative z-10 mt-8">
-                    <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-xs flex items-center justify-center border border-white/10 shadow-sm">
-                        <svg className="w-4 h-4 text-white" viewBox="0 0 180 180" fill="none">
-                            <circle cx="90" cy="90" r="90" fill="black" />
-                            <path d="M140 140L80 60V140H60V40H80L140 120V40H160V140H140Z" fill="white" />
-                        </svg>
-                    </div>
-                </div>
+                {/* Next.js Badge removed */}
             </div>
 
             {/* Right Column - Form Area */}
@@ -120,14 +112,14 @@ export default function LoginPage() {
                         <form onSubmit={handleLogin} className="space-y-5">
                             <div className="space-y-1.5">
                                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                    Email
+                                    Username
                                 </label>
                                 <input
                                     type="text"
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D10000]/10 focus:border-[#D10000] transition-all text-sm shadow-xs"
-                                    placeholder="Enter your email"
+                                    placeholder="Enter your username"
                                     required
                                 />
                             </div>

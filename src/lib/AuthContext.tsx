@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Redirect based on role
         if (newUser.role === 'Leader') router.push('/leader')
-        else if (newUser.role === 'Clerk') router.push('/clerk')
+        else if (newUser.role === 'Clerk') router.push('/clerk/compare-line-data')
         else router.push('/admin')
     }
 

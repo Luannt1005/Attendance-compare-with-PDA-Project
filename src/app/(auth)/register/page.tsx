@@ -93,15 +93,7 @@ export default function RegisterPage() {
                     </p>
                 </div>
 
-                {/* Next.js Badge in the bottom left */}
-                <div className="relative z-10 mt-8">
-                    <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-xs flex items-center justify-center border border-white/10 shadow-sm">
-                        <svg className="w-4 h-4 text-white" viewBox="0 0 180 180" fill="none">
-                            <circle cx="90" cy="90" r="90" fill="black" />
-                            <path d="M140 140L80 60V140H60V40H80L140 120V40H160V140H140Z" fill="white" />
-                        </svg>
-                    </div>
-                </div>
+                {/* Next.js Badge removed */}
             </div>
 
             {/* Right Column - Form Area */}
