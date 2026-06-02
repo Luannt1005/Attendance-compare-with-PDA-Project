@@ -13,7 +13,7 @@ function getFieldValue(row: any, keys: string[]): any {
     return undefined;
 }
 
-function parseExcelDate(dateVal: any): string | null {
+function parseExcelDate(dateVal: any, filterDate?: string): string | null {
     if (dateVal === undefined || dateVal === null) return null;
     
     if (dateVal instanceof Date) {
@@ -54,48 +54,39 @@ function parseExcelDate(dateVal: any): string | null {
         const p2 = parseInt(match[2], 10);
         const p3 = parseInt(match[3], 10);
         
-        let y = 0, m = 0, d = 0;
+        let possibleDates: string[] = [];
         
         if (match[1].length === 4) {
-            y = p1;
-            if (p2 > 12) {
-                d = p2;
-                m = p3;
-            } else if (p3 > 12) {
-                m = p2;
-                d = p3;
-            } else {
-                m = p2;
-                d = p3;
+            const y = p1;
+            if (p2 >= 1 && p2 <= 12 && p3 >= 1 && p3 <= 31) {
+                possibleDates.push(`${y}-${String(p2).padStart(2, '0')}-${String(p3).padStart(2, '0')}`);
+            }
+            if (p3 >= 1 && p3 <= 12 && p2 >= 1 && p2 <= 31 && p2 !== p3) {
+                possibleDates.push(`${y}-${String(p3).padStart(2, '0')}-${String(p2).padStart(2, '0')}`);
             }
         } else if (match[3].length === 4) {
-            y = p3;
-            if (p1 > 12) {
-                d = p1;
-                m = p2;
-            } else if (p2 > 12) {
-                m = p1;
-                d = p2;
-            } else {
-                d = p1;
-                m = p2;
+            const y = p3;
+            if (p2 >= 1 && p2 <= 12 && p1 >= 1 && p1 <= 31) {
+                possibleDates.push(`${y}-${String(p2).padStart(2, '0')}-${String(p1).padStart(2, '0')}`);
+            }
+            if (p1 >= 1 && p1 <= 12 && p2 >= 1 && p2 <= 31 && p1 !== p2) {
+                possibleDates.push(`${y}-${String(p1).padStart(2, '0')}-${String(p2).padStart(2, '0')}`);
             }
         } else {
-            y = p3 < 50 ? 2000 + p3 : 1900 + p3;
-            if (p1 > 12) {
-                d = p1;
-                m = p2;
-            } else if (p2 > 12) {
-                m = p1;
-                d = p2;
-            } else {
-                d = p1;
-                m = p2;
+            const y = p3 < 50 ? 2000 + p3 : 1900 + p3;
+            if (p2 >= 1 && p2 <= 12 && p1 >= 1 && p1 <= 31) {
+                possibleDates.push(`${y}-${String(p2).padStart(2, '0')}-${String(p1).padStart(2, '0')}`);
+            }
+            if (p1 >= 1 && p1 <= 12 && p2 >= 1 && p2 <= 31 && p1 !== p2) {
+                possibleDates.push(`${y}-${String(p1).padStart(2, '0')}-${String(p2).padStart(2, '0')}`);
             }
         }
         
-        if (y > 0 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-            return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        if (possibleDates.length > 0) {
+            if (filterDate && possibleDates.includes(filterDate)) {
+                return filterDate;
+            }
+            return possibleDates[0];
         }
     }
     
@@ -212,7 +203,7 @@ export async function POST(req: Request) {
             
             totalRowsWithHeaders++;
             let employeeCode = String(staffNo).replace(/\$/g, '').trim();
-            let dateStr = parseExcelDate(dateVal);
+            let dateStr = parseExcelDate(dateVal, filterDate);
 
             if (!dateStr || !employeeCode) continue;
 
