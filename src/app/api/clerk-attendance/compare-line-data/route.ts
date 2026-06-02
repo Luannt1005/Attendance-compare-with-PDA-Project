@@ -26,13 +26,57 @@ export async function POST(req: Request) {
         const headers = rawData[0];
         const dateCols: { index: number, dateStr: string, dateObj: Date }[] = [];
         
-        // Extract dates from headers starting at index 3
-        for (let i = 3; i < headers.length; i++) {
+        // Helper to check if a header is a date
+        function isDateHeader(h: any): boolean {
+            if (typeof h === 'number' && h > 30000 && h < 60000) {
+                try {
+                    const dateInfo = XLSX.SSF.parse_date_code(h);
+                    return !!(dateInfo && dateInfo.y >= 1990 && dateInfo.y <= 2100);
+                } catch {
+                    return false;
+                }
+            }
+            if (typeof h === 'string') {
+                const cleaned = h.trim();
+                if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(cleaned) || /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(cleaned)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Find where date columns start
+        let firstDateIndex = -1;
+        for (let i = 2; i < headers.length; i++) {
+            if (isDateHeader(headers[i])) {
+                firstDateIndex = i;
+                break;
+            }
+        }
+
+        if (firstDateIndex === -1) {
+            return NextResponse.json({ error: 'No valid date headers found. Check your template.' }, { status: 400 });
+        }
+
+        // Extract dates
+        for (let i = firstDateIndex; i < headers.length; i++) {
             const h = headers[i];
+            let d: Date | null = null;
             if (typeof h === 'number') {
                 const dateInfo = XLSX.SSF.parse_date_code(h);
-                // Note: dateInfo.m is 1-indexed, JS Date is 0-indexed
-                const d = new Date(dateInfo.y, dateInfo.m - 1, dateInfo.d);
+                d = new Date(dateInfo.y, dateInfo.m - 1, dateInfo.d);
+            } else if (typeof h === 'string') {
+                const cleaned = h.trim();
+                const parts = cleaned.split(/[\/\-]/);
+                if (parts.length === 3) {
+                    if (parts[0].length === 4) {
+                        d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                    } else if (parts[2].length === 4) {
+                        d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                    }
+                }
+            }
+            if (d && !isNaN(d.getTime())) {
                 const dateStr = format(d, 'yyyy-MM-dd');
                 dateCols.push({ index: i, dateStr, dateObj: d });
             }
@@ -204,7 +248,7 @@ export async function POST(req: Request) {
             if (!empCode) continue;
             const emp = empMap.get(empCode);
             if (!emp) continue;
-            const leader = row[2] ? String(row[2]).trim() : 'N/A';
+            const leader = (firstDateIndex > 2 && row[2]) ? String(row[2]).trim() : 'N/A';
 
             for (const col of dateCols) {
                 const shiftCodeRaw = row[col.index];
