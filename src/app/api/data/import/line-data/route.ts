@@ -168,25 +168,55 @@ export async function POST(req: Request) {
         
         const rawData = XLSX.utils.sheet_to_json(sheet, { raw: false }) as any[];
         if (!rawData || rawData.length === 0) {
-            throw new Error('Excel sheet is empty');
+            return NextResponse.json({ error: 'File Excel rỗng hoặc không hợp lệ' }, { status: 400 });
+        }
+
+        // Define expected headers for checking and matching
+        const staffNoKeys = ['Staff No', 'Staff ID', 'Mã NV', 'Employee Code', 'EmployeeCode', 'StaffNo', 'StaffID', 'MaNV', 'Mã nhân viên', 'Ma nhan vien'];
+        const dateValKeys = ['Date', 'Ngay', 'Ngày', 'Ngày làm việc', 'Ngay lam viec', 'Work Date', 'WorkDate', 'Ngày tháng', 'Ngay thang'];
+        const clockInKeys = ['Clock IN', 'IN', 'Gio vao', 'Giờ vào', 'ClockIn', 'InTime', 'Giờ Vô', 'IN Line', 'INLine', 'Line IN', 'LineIN', 'Vào', 'Vô', 'Giờ đi làm'];
+        const clockOutKeys = ['Clock OUT', 'OUT', 'Gio ra', 'Giờ ra', 'ClockOut', 'OutTime', 'Giờ Ra', 'OUT Line', 'OUTLine', 'Line OUT', 'LineOUT', 'Ra', 'Về', 'Giờ về'];
+
+        // Get all unique keys found across all rows in the Excel sheet
+        const allKeys = new Set<string>();
+        rawData.forEach(row => {
+            Object.keys(row).forEach(k => allKeys.add(k));
+        });
+
+        // Verify if we have at least one column for staff number and one for date
+        const hasStaffNo = Array.from(allKeys).some(k => staffNoKeys.map(sk => sk.toLowerCase().trim()).includes(k.toLowerCase().trim()));
+        const hasDateVal = Array.from(allKeys).some(k => dateValKeys.map(dk => dk.toLowerCase().trim()).includes(k.toLowerCase().trim()));
+
+        if (!hasStaffNo || !hasDateVal) {
+            const foundHeaders = Array.from(allKeys).join(', ');
+            return NextResponse.json({ 
+                error: `File Excel thiếu cột bắt buộc. Cần cột chứa Mã nhân viên (ví dụ: "Mã nhân viên", "Mã NV", "Staff No") và Ngày làm việc (ví dụ: "Ngày làm việc", "Ngày tháng", "Date"). Các cột tìm thấy trong file: [${foundHeaders}]`
+            }, { status: 400 });
         }
 
         const uniqueDates = new Set<string>();
         const empCodeSet = new Set<string>();
         const parsedRows: { empCode: string, date: string, in: string | null, out: string | null, shift: string, line: string }[] = [];
 
+        // Track debug/validation metrics
+        const fileDates = new Set<string>();
+        let totalRowsWithHeaders = 0;
+
         for (const row of rawData) {
-            let staffNo = getFieldValue(row, ['Staff No', 'Staff ID', 'Mã NV', 'Employee Code', 'EmployeeCode', 'StaffNo', 'StaffID', 'MaNV']);
-            let dateVal = getFieldValue(row, ['Date', 'Ngay', 'Ngày']);
-            let clockIn = getFieldValue(row, ['Clock IN', 'IN', 'Gio vao', 'Giờ vào', 'ClockIn', 'InTime', 'Giờ Vô']);
-            let clockOut = getFieldValue(row, ['Clock OUT', 'OUT', 'Gio ra', 'Giờ ra', 'ClockOut', 'OutTime', 'Giờ Ra']);
+            let staffNo = getFieldValue(row, staffNoKeys);
+            let dateVal = getFieldValue(row, dateValKeys);
+            let clockIn = getFieldValue(row, clockInKeys);
+            let clockOut = getFieldValue(row, clockOutKeys);
 
             if (staffNo === undefined || staffNo === null || dateVal === undefined || dateVal === null) continue;
             
+            totalRowsWithHeaders++;
             let employeeCode = String(staffNo).replace(/\$/g, '').trim();
             let dateStr = parseExcelDate(dateVal);
 
             if (!dateStr || !employeeCode) continue;
+
+            fileDates.add(dateStr);
 
             // Optional filter Date
             if (filterDate && dateStr !== filterDate) continue;
@@ -212,7 +242,19 @@ export async function POST(req: Request) {
 
         const employeeCodes = Array.from(empCodeSet);
         if (employeeCodes.length === 0) {
-            return NextResponse.json({ error: 'No valid data found in file for the selected criteria' }, { status: 400 });
+            if (totalRowsWithHeaders === 0) {
+                return NextResponse.json({ 
+                    error: 'Không tìm thấy dữ liệu hợp lệ trong file Excel. Vui lòng kiểm tra lại cấu trúc file.' 
+                }, { status: 400 });
+            }
+            if (fileDates.size > 0 && filterDate && !fileDates.has(filterDate)) {
+                return NextResponse.json({ 
+                    error: `Ngày được chọn trên hệ thống là ${filterDate}, nhưng file Excel được tải lên chỉ chứa dữ liệu các ngày: ${Array.from(fileDates).join(', ')}. Vui lòng chọn đúng ngày hoặc kiểm tra lại file.` 
+                }, { status: 400 });
+            }
+            return NextResponse.json({ 
+                error: `Không tìm thấy dữ liệu hợp lệ khớp với ngày đã chọn (${filterDate || ''}).` 
+            }, { status: 400 });
         }
 
         // Fetch valid employee IDs using OR to support multiple casing
