@@ -196,3 +196,16 @@ model LineData {
   @@index([recordDate])
 }
 
+model LeaveRecord {
+  id           Int      @id @default(autoincrement())
+  employeeCode String
+  employeeName String
+  recordDate   DateTime @db.Date
+  leaveType    String
+  zone         String?
+  shiftLeader  String?
+  lineLeader   String?
+
+  @@unique([employeeCode, recordDate])
+  @@index([recordDate])
+}

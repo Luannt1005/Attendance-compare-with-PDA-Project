@@ -205,7 +205,7 @@ export async function POST(req: Request) {
             if (staffNo === undefined || staffNo === null || dateVal === undefined || dateVal === null) continue;
             
             totalRowsWithHeaders++;
-            let employeeCode = String(staffNo).replace(/\$/g, '').trim();
+            let employeeCode = String(staffNo).replace(/\$/g, '').trim().replace(/^0+/, '');
             let dateStr = parseExcelDate(dateVal, filterDate);
 
             if (!dateStr || !employeeCode) continue;

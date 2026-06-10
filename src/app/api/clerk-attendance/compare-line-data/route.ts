@@ -16,15 +16,6 @@ export async function POST(req: Request) {
         const buffer = Buffer.from(arrayBuffer);
         
         const workbook = XLSX.read(buffer, { type: 'buffer' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[];
-
-        if (rawData.length < 2) {
-            return NextResponse.json({ error: 'Excel file is empty or invalid' }, { status: 400 });
-        }
-
-        const headers = rawData[0];
-        const dateCols: { index: number, dateStr: string, dateObj: Date }[] = [];
         
         // Helper to check if a header is a date
         function isDateHeader(h: any): boolean {
@@ -38,76 +29,129 @@ export async function POST(req: Request) {
             }
             if (typeof h === 'string') {
                 const cleaned = h.trim();
-                if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(cleaned) || /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(cleaned)) {
+                if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(cleaned) || 
+                    /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(cleaned) ||
+                    /^\d{1,2}[\/\-]\d{1,2}$/.test(cleaned) ||
+                    /^\d{1,2}[\/\-][a-zA-Z]{3}[\/\-]\d{2,4}$/.test(cleaned) ||
+                    /^\d{1,2}[\/\-][a-zA-Z]{3}$/.test(cleaned)) {
                     return true;
                 }
             }
             return false;
         }
 
-        // Find where date columns start
-        let firstDateIndex = -1;
-        for (let i = 2; i < headers.length; i++) {
-            if (isDateHeader(headers[i])) {
-                firstDateIndex = i;
-                break;
-            }
+        interface ShiftAssignment {
+            empCode: string;
+            fullName: string;
+            leader: string;
+            dateStr: string;
+            dateObj: Date;
+            shiftCode: string;
         }
 
-        if (firstDateIndex === -1) {
-            return NextResponse.json({ error: 'No valid date headers found. Check your template.' }, { status: 400 });
-        }
+        const shiftAssignments: ShiftAssignment[] = [];
+        const employeeCodesSet = new Set<string>();
+        const codeToNameMap = new Map<string, string>();
 
-        // Extract dates
-        for (let i = firstDateIndex; i < headers.length; i++) {
-            const h = headers[i];
-            let d: Date | null = null;
-            if (typeof h === 'number') {
-                const dateInfo = XLSX.SSF.parse_date_code(h);
-                d = new Date(dateInfo.y, dateInfo.m - 1, dateInfo.d);
-            } else if (typeof h === 'string') {
-                const cleaned = h.trim();
-                const parts = cleaned.split(/[\/\-]/);
-                if (parts.length === 3) {
-                    if (parts[0].length === 4) {
-                        d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                    } else if (parts[2].length === 4) {
-                        d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-                    }
+        for (const sheetName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sheetName];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[];
+            if (rawData.length < 2) continue;
+
+            const headers = rawData[0];
+            
+            // Find where date columns start
+            let firstDateIndex = -1;
+            for (let i = 2; i < headers.length; i++) {
+                if (isDateHeader(headers[i])) {
+                    firstDateIndex = i;
+                    break;
                 }
             }
-            if (d && !isNaN(d.getTime())) {
-                const dateStr = format(d, 'yyyy-MM-dd');
-                dateCols.push({ index: i, dateStr, dateObj: d });
+            if (firstDateIndex === -1) continue;
+
+            // Extract dates
+            const dateCols: { index: number, dateStr: string, dateObj: Date }[] = [];
+            for (let i = firstDateIndex; i < headers.length; i++) {
+                const h = headers[i];
+                let d: Date | null = null;
+                if (typeof h === 'number') {
+                    const dateInfo = XLSX.SSF.parse_date_code(h);
+                    d = new Date(dateInfo.y, dateInfo.m - 1, dateInfo.d);
+                } else if (typeof h === 'string') {
+                    const cleaned = h.trim();
+                    
+                    if (/^\d{1,2}[\/\-][a-zA-Z]{3}([\/\-]\d{2,4})?$/.test(cleaned)) {
+                        d = new Date(cleaned);
+                    } else {
+                        const parts = cleaned.split(/[\/\-]/);
+                        if (parts.length === 3) {
+                            if (parts[0].length === 4) {
+                                d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                            } else if (parts[2].length === 4) {
+                                d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                            } else {
+                                let y = parseInt(parts[2]);
+                                y = y < 100 ? 2000 + y : y;
+                                d = new Date(y, parseInt(parts[1]) - 1, parseInt(parts[0]));
+                            }
+                        } else if (parts.length === 2) {
+                            d = new Date(new Date().getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                        }
+                    }
+                }
+                if (d && !isNaN(d.getTime())) {
+                    const dateStr = format(d, 'yyyy-MM-dd');
+                    dateCols.push({ index: i, dateStr, dateObj: d });
+                }
+            }
+
+            if (dateCols.length === 0) continue;
+
+            const employeeRows = rawData.slice(1);
+            for (const row of employeeRows) {
+                const empCode = String(row[0] || '').trim().replace(/^0+/, '');
+                if (!empCode) continue;
+
+                employeeCodesSet.add(empCode);
+                const name = row[1] ? String(row[1]).trim() : 'Unknown Employee';
+                if (name && name !== 'Unknown Employee' && name !== 'Unknown') {
+                    codeToNameMap.set(empCode, name);
+                }
+
+                const leader = (firstDateIndex > 2 && row[2]) ? String(row[2]).trim() : 'N/A';
+
+                for (const col of dateCols) {
+                    const shiftCodeRaw = row[col.index];
+                    const shiftCode = shiftCodeRaw ? String(shiftCodeRaw).trim().toUpperCase() : '';
+                    
+                    shiftAssignments.push({
+                        empCode,
+                        fullName: name,
+                        leader,
+                        dateStr: col.dateStr,
+                        dateObj: col.dateObj,
+                        shiftCode
+                    });
+                }
             }
         }
 
-        if (dateCols.length === 0) {
+        if (shiftAssignments.length === 0) {
             return NextResponse.json({ error: 'No valid date headers found. Check your template.' }, { status: 400 });
         }
 
-        const allDates = dateCols.map(d => d.dateStr).sort();
+        const allDates = Array.from(new Set(shiftAssignments.map(s => s.dateStr))).sort();
         const minDate = new Date(allDates[0]);
         const maxDate = new Date(allDates[allDates.length - 1]);
         const fpMaxDate = addDays(maxDate, 1);
 
-        // Extract employee codes
-        const employeeRows = rawData.slice(1);
-        const employeeCodes = employeeRows.map(r => String(r[0]).trim()).filter(Boolean);
+        const employeeCodes = Array.from(employeeCodesSet);
 
         // Pre-fetch all necessary data from DB
         const shifts = await prisma.shift.findMany();
         const shiftMap = new Map();
         for (const s of shifts) shiftMap.set(s.code.trim().toUpperCase(), s);
-
-        const codeToNameMap = new Map<string, string>();
-        for (const row of employeeRows) {
-            const code = String(row[0]).trim();
-            if (code && !codeToNameMap.has(code)) {
-                const name = row[1] ? String(row[1]).trim() : 'Unknown Employee';
-                codeToNameMap.set(code, name);
-            }
-        }
 
         // Auto-create missing employees so NOTHING is skipped
         const existingEmployees = await prisma.employee.findMany({
@@ -174,13 +218,11 @@ export async function POST(req: Request) {
         });
 
         const fingerprints = await prisma.fingerprint.findMany({
-             where: {
-                 employeeId: { in: employees.map(e => e.id) },
-                 recordDate: { gte: minDate, lte: fpMaxDate }
-             }
+            where: {
+                employeeId: { in: employees.map(e => e.id) },
+                recordDate: { gte: minDate, lte: fpMaxDate }
+            }
         });
-
-
 
         // Helper function for OT calculation
         function calcOT(inStr: string | null, outStr: string | null, shiftCode: string, dateObj: Date) {
@@ -198,11 +240,10 @@ export async function POST(req: Request) {
             
             if (isNightShift) {
                 reqOut = addDays(reqOut, 1);
-                // Any IN time before 15:00 belongs to the next day's morning
                 if (actIn.getHours() < 15) actIn = addDays(actIn, 1);
                 if (actOut.getHours() < 15) actOut = addDays(actOut, 1);
             }
-            if (actOut < actIn) actOut = addDays(actOut, 1); // fallback
+            if (actOut < actIn) actOut = addDays(actOut, 1);
 
             if (conf.otPreStart && conf.otPreEnd) {
                 let preStart = parseTimeStr(conf.otPreStart, dateObj);
@@ -262,239 +303,275 @@ export async function POST(req: Request) {
 
         const results = [];
 
-        for (const row of employeeRows) {
-            const empCode = String(row[0]).trim();
-            if (!empCode) continue;
-            const emp = empMap.get(empCode);
+        for (const assignment of shiftAssignments) {
+            const emp = empMap.get(assignment.empCode);
             if (!emp) continue;
-            const leader = (firstDateIndex > 2 && row[2]) ? String(row[2]).trim() : 'N/A';
 
-            for (const col of dateCols) {
-                const shiftCodeRaw = row[col.index];
-                const shiftCode = shiftCodeRaw ? String(shiftCodeRaw).trim().toUpperCase() : '';
+            const { empCode, dateStr, dateObj, shiftCode, leader } = assignment;
 
-                const empLds = lineDataRecords.filter(l => l.employeeId === emp.id && format(l.recordDate, 'yyyy-MM-dd') === col.dateStr);
-                const fpToday = fingerprints.find(f => f.employeeId === emp.id && format(f.recordDate, 'yyyy-MM-dd') === col.dateStr);
-                const fpNext = fingerprints.find(f => f.employeeId === emp.id && format(f.recordDate, 'yyyy-MM-dd') === format(addDays(col.dateObj, 1), 'yyyy-MM-dd'));
+            const empLds = lineDataRecords.filter(l => l.employeeId === emp.id && format(l.recordDate, 'yyyy-MM-dd') === dateStr);
+            const fpToday = fingerprints.find(f => f.employeeId === emp.id && format(f.recordDate, 'yyyy-MM-dd') === dateStr);
+            const fpNext = fingerprints.find(f => f.employeeId === emp.id && format(f.recordDate, 'yyyy-MM-dd') === format(addDays(dateObj, 1), 'yyyy-MM-dd'));
 
-                const shiftConf = shiftMap.get(shiftCode);
+            const shiftConf = shiftMap.get(shiftCode);
 
-                if (shiftConf && shiftConf.isLeave) {
-                    results.push({
-                        employeeCode: empCode,
-                        fullName: emp.fullName,
-                        leader: leader,
-                        date: col.dateStr,
-                        shift: shiftCode,
-                        fpIn: 'N/A',
-                        fpOut: 'N/A',
-                        lineIn: 'N/A',
-                        lineOut: 'N/A',
-                        otFp: 0,
-                        otLine: 0,
-                        diff: 0,
-                        varCheckIn: 'N/A',
-                        varCheckOut: 'N/A',
-                        reason: 'Nghỉ phép',
-                        status: 'VALID'
-                    });
-                    continue;
-                }
-                const isNight = shiftConf && parseTimeStr(shiftConf.endTime, col.dateObj) < parseTimeStr(shiftConf.startTime, col.dateObj);
-                
-                let fpIn = null;
-                let fpOut = null;
-                
-                if (fpToday) {
-                    const parsed = extractInOut(fpToday.timeString);
-                    fpIn = parsed.inTime;
-                    if (!isNight) {
-                        fpOut = parsed.outTime;
-                    }
-                }
-                if (isNight) {
-                    if (fpNext) {
-                        const parsedNext = extractInOut(fpNext.timeString);
-                        if (parsedNext.outTime && parsedNext.outTime < '15:00') {
-                            fpOut = parsedNext.outTime;
-                        } else if (parsedNext.inTime && parsedNext.inTime < '15:00') {
-                            fpOut = parsedNext.inTime;
-                        }
-                    }
-                    if (!fpOut && fpToday) {
-                        const parsedToday = extractInOut(fpToday.timeString);
-                        if (parsedToday.outTime && parsedToday.outTime >= '14:00' && parsedToday.outTime !== fpIn) {
-                            fpOut = parsedToday.outTime;
-                        }
-                    }
-                }
+            const joiningDate = emp.joinDate ? format(emp.joinDate, 'yyyy-MM-dd') : '';
+            const lwd = emp.resignDate ? format(emp.resignDate, 'yyyy-MM-dd') : '';
+            const lineLeader = leader !== 'N/A' ? leader : '';
+            const shiftLeaderVal = emp.shiftLeader || '';
+            const supervisorVal = emp.supervisor || '';
+            const mgtVal = emp.mgt || '';
 
-                // Aggregate multiple line records to earliest check-in and latest check-out
-                const isNightShift = shiftConf && parseTimeStr(shiftConf.endTime, col.dateObj) < parseTimeStr(shiftConf.startTime, col.dateObj);
-                const aggregatedLine = getEarliestLatestLine(empLds, !!isNightShift, col.dateObj);
-
-                const lineInStr = aggregatedLine.lineIn || 'N/A';
-                const lineOutStr = aggregatedLine.lineOut || 'N/A';
-
-                let otFp = calcOT(fpIn, fpOut, shiftCode, col.dateObj);
-                if (otFp < 0.5) {
-                    otFp = 0;
-                }
-                let otLine = calcOT(aggregatedLine.lineIn, aggregatedLine.lineOut, shiftCode, col.dateObj);
-                if (otLine < 0.5) {
-                    otLine = 0;
-                }
-                
-                const diff = otFp - otLine;
-                
-                let varCheckIn = 'N/A';
-                let hasCheckInDeviation = false;
-                let absCheckInDev: number | null = null;
-                if (aggregatedLine.lineIn && shiftConf && shiftConf.startTime) {
-                    let lineInTime = parseTimeStr(aggregatedLine.lineIn, col.dateObj);
-                    let shiftStartTime = parseTimeStr(shiftConf.startTime, col.dateObj);
-                    if (isNightShift) {
-                        if (lineInTime.getHours() < 15) lineInTime = addDays(lineInTime, 1);
-                        if (shiftStartTime.getHours() < 15) shiftStartTime = addDays(shiftStartTime, 1);
-                    }
-                    const diffMins = differenceInMinutes(lineInTime, shiftStartTime);
-                    absCheckInDev = Math.abs(diffMins);
-                    varCheckIn = diffMins > 0 ? `+${diffMins}m` : `${diffMins}m`;
-                    if (diffMins > 15) {
-                        hasCheckInDeviation = true;
-                    }
-                }
-
-                let varCheckOut = 'N/A';
-                let hasCheckOutDeviation = false;
-                let absCheckOutDev: number | null = null;
-                if (aggregatedLine.lineOut && shiftConf && shiftConf.endTime) {
-                    let lineOutTime = parseTimeStr(aggregatedLine.lineOut, col.dateObj);
-                    let shiftEndTime = parseTimeStr(shiftConf.endTime, col.dateObj);
-                    let shiftStartTime = shiftConf.startTime ? parseTimeStr(shiftConf.startTime, col.dateObj) : null;
-                    
-                    if (isNightShift) {
-                        shiftEndTime = addDays(shiftEndTime, 1);
-                        if (lineOutTime.getHours() < 15) {
-                            lineOutTime = addDays(lineOutTime, 1);
-                        }
-                    }
-                    
-                    if (shiftStartTime && lineOutTime < shiftStartTime) {
-                        lineOutTime = addDays(lineOutTime, 1);
-                    }
-                    
-                    const diffMinsOut = differenceInMinutes(lineOutTime, shiftEndTime);
-                    absCheckOutDev = Math.abs(diffMinsOut);
-                    varCheckOut = diffMinsOut > 0 ? `+${diffMinsOut}m` : `${diffMinsOut}m`;
-                    if (diffMinsOut < -15) {
-                        hasCheckOutDeviation = true;
-                    }
-                }
-
-                let isPdaWrong = false;
-                if (aggregatedLine.lineIn && fpIn && aggregatedLine.lineOut && fpOut) {
-                    let lineInTime = parseTimeStr(aggregatedLine.lineIn, col.dateObj);
-                    let fpInTime = parseTimeStr(fpIn, col.dateObj);
-                    let lineOutTime = parseTimeStr(aggregatedLine.lineOut, col.dateObj);
-                    let fpOutTime = parseTimeStr(fpOut, col.dateObj);
-
-                    if (isNightShift) {
-                        if (lineInTime.getHours() < 15) lineInTime = addDays(lineInTime, 1);
-                        if (fpInTime.getHours() < 15) fpInTime = addDays(fpInTime, 1);
-                        if (lineOutTime.getHours() < 15) lineOutTime = addDays(lineOutTime, 1);
-                        if (fpOutTime.getHours() < 15) fpOutTime = addDays(fpOutTime, 1);
-                    }
-
-                    if (lineOutTime < lineInTime) lineOutTime = addDays(lineOutTime, 1);
-                    if (fpOutTime < fpInTime) fpOutTime = addDays(fpOutTime, 1);
-
-                    const diffIn = Math.abs(differenceInMinutes(lineInTime, fpInTime));
-                    const diffOut = Math.abs(differenceInMinutes(lineOutTime, fpOutTime));
-
-                    if (diffIn + diffOut > 400) {
-                        isPdaWrong = true;
-                    }
-                }
-
-                const isWrongShift = (absCheckInDev !== null && absCheckInDev > 200 && absCheckOutDev !== null && absCheckOutDev > 200);
-
-                let reason = '';
-                if (shiftCode === '') {
-                    if (!fpIn && !fpOut && (empLds.length === 0 || (!aggregatedLine.lineIn && !aggregatedLine.lineOut))) {
-                        reason = 'Không đăng kí ca và không đi làm';
-                    } else {
-                        reason = 'Đi làm nhưng không đăng kí ca';
-                    }
-                } else if (!shiftConf) {
-                    reason = 'Ca không có trên hệ thống';
-                } else if (!fpIn && !fpOut && (empLds.length === 0 || (!aggregatedLine.lineIn && !aggregatedLine.lineOut))) {
-                    reason = 'Không đi làm nhưng có đăng kí ca';
-                } else if (!fpIn || !fpOut) {
-                    reason = 'Thiếu vân tay IN/OUT';
-                } else if (isPdaWrong) {
-                    reason = 'PDA sai';
-                } else if (isWrongShift) {
-                    reason = 'Sai ca';
-                } else if (empLds.length === 0 || lineInStr === 'N/A' || lineOutStr === 'N/A') {
-                    if (diff !== 0) {
-                        reason = 'Thiếu dữ liệu Line IN/OUT không xác định được OT';
-                    } else {
-                        reason = 'Thiếu dữ liệu Line IN/OUT';
-                    }
-                } else if (diff > 0) {
-                    reason = `Lệch: OT Vân tay lớn hơn OT Line`;
-                } else if (diff < 0) {
-                    reason = `Lệch: OT Line lớn hơn OT Vân tay`;
-                } else if (hasCheckInDeviation) {
-                    reason = 'Checkin line trễ';
-                } else if (hasCheckOutDeviation) {
-                    reason = 'Check out line sớm';
-                } else {
-                    reason = 'Hợp lệ';
-                }
-
-                let status: 'VALID' | 'VERIFY NEEDED' | 'REMINDER' = 'VALID';
-                if (
-                    reason === 'Thiếu dữ liệu Line IN/OUT' || 
-                    reason === 'Không đi làm nhưng có đăng kí ca' ||
-                    reason === 'Checkin line trễ' ||
-                    reason === 'Check out line sớm' ||
-                    reason === 'Lệch: OT Line lớn hơn OT Vân tay'
-                ) {
-                    status = 'REMINDER';
-                }
-                if (
-                    reason === 'Thiếu vân tay IN/OUT' || 
-                    reason === 'Ca không có trên hệ thống' || 
-                    reason === 'Đi làm nhưng không đăng kí ca' ||
-                    reason === 'Sai ca' ||
-                    reason === 'PDA sai' ||
-                    reason === 'Thiếu dữ liệu Line IN/OUT không xác định được OT' ||
-                    (diff !== 0 && reason !== 'Thiếu dữ liệu Line IN/OUT' && reason !== 'Thiếu dữ liệu Line IN/OUT không xác định được OT' && reason !== 'Lệch: OT Line lớn hơn OT Vân tay' && reason !== 'Sai ca' && reason !== 'PDA sai')
-                ) {
-                    status = 'VERIFY NEEDED';
-                }
-
+            if (shiftConf && shiftConf.isLeave) {
                 results.push({
                     employeeCode: empCode,
                     fullName: emp.fullName,
                     leader: leader,
-                    date: col.dateStr,
+                    date: dateStr,
                     shift: shiftCode,
-                    fpIn: fpIn || 'N/A',
-                    fpOut: fpOut || 'N/A',
-                    lineIn: lineInStr,
-                    lineOut: lineOutStr,
-                    otFp,
-                    otLine,
-                    diff,
-                    varCheckIn,
-                    varCheckOut,
-                    reason,
-                    status
+                    fpIn: 'N/A',
+                    fpOut: 'N/A',
+                    lineIn: 'N/A',
+                    lineOut: 'N/A',
+                    otFp: 0,
+                    otLine: 0,
+                    diff: 0,
+                    varCheckIn: 'N/A',
+                    varCheckOut: 'N/A',
+                    reason: 'Nghỉ phép',
+                    status: 'VALID',
+                    joiningDate,
+                    lwd,
+                    lineLeader,
+                    shiftLeader: shiftLeaderVal,
+                    supervisor: supervisorVal,
+                    mgt: mgtVal
                 });
+                continue;
             }
+            const isNight = shiftConf && parseTimeStr(shiftConf.endTime, dateObj) < parseTimeStr(shiftConf.startTime, dateObj);
+            
+            let fpIn = null;
+            let fpOut = null;
+            
+            if (fpToday) {
+                const parsed = extractInOut(fpToday.timeString);
+                fpIn = parsed.inTime;
+                if (!isNight) {
+                    fpOut = parsed.outTime;
+                }
+            }
+            if (isNight) {
+                if (fpNext) {
+                    const parsedNext = extractInOut(fpNext.timeString);
+                    if (parsedNext.outTime && parsedNext.outTime < '15:00') {
+                        fpOut = parsedNext.outTime;
+                    } else if (parsedNext.inTime && parsedNext.inTime < '15:00') {
+                        fpOut = parsedNext.inTime;
+                    }
+                }
+                if (!fpOut && fpToday) {
+                    const parsedToday = extractInOut(fpToday.timeString);
+                    if (parsedToday.outTime && parsedToday.outTime >= '14:00' && parsedToday.outTime !== fpIn) {
+                        fpOut = parsedToday.outTime;
+                    }
+                }
+            }
+
+            // Aggregate multiple line records to earliest check-in and latest check-out
+            const isNightShift = shiftConf && parseTimeStr(shiftConf.endTime, dateObj) < parseTimeStr(shiftConf.startTime, dateObj);
+            const aggregatedLine = getEarliestLatestLine(empLds, !!isNightShift, dateObj);
+
+            const lineInStr = aggregatedLine.lineIn || 'N/A';
+            const lineOutStr = aggregatedLine.lineOut || 'N/A';
+
+            let otFp = calcOT(fpIn, fpOut, shiftCode, dateObj);
+            if (otFp < 0.5) {
+                otFp = 0;
+            }
+            let otLine = calcOT(aggregatedLine.lineIn, aggregatedLine.lineOut, shiftCode, dateObj);
+            if (otLine < 0.5) {
+                otLine = 0;
+            }
+            
+            const diff = otFp - otLine;
+            
+            let varCheckIn = 'N/A';
+            let hasCheckInDeviation = false;
+            let absCheckInDev: number | null = null;
+            if (aggregatedLine.lineIn && shiftConf && shiftConf.startTime) {
+                let lineInTime = parseTimeStr(aggregatedLine.lineIn, dateObj);
+                let shiftStartTime = parseTimeStr(shiftConf.startTime, dateObj);
+                if (isNightShift) {
+                    if (lineInTime.getHours() < 15) lineInTime = addDays(lineInTime, 1);
+                    if (shiftStartTime.getHours() < 15) shiftStartTime = addDays(shiftStartTime, 1);
+                }
+                const diffMins = differenceInMinutes(lineInTime, shiftStartTime);
+                absCheckInDev = Math.abs(diffMins);
+                varCheckIn = diffMins > 0 ? `+${diffMins}m` : `${diffMins}m`;
+                if (diffMins > 15) {
+                    hasCheckInDeviation = true;
+                }
+            }
+
+            let varCheckOut = 'N/A';
+            let hasCheckOutDeviation = false;
+            let absCheckOutDev: number | null = null;
+            if (aggregatedLine.lineOut && shiftConf && shiftConf.endTime) {
+                let lineOutTime = parseTimeStr(aggregatedLine.lineOut, dateObj);
+                let shiftEndTime = parseTimeStr(shiftConf.endTime, dateObj);
+                let shiftStartTime = shiftConf.startTime ? parseTimeStr(shiftConf.startTime, dateObj) : null;
+                
+                if (isNightShift) {
+                    shiftEndTime = addDays(shiftEndTime, 1);
+                    if (lineOutTime.getHours() < 15) {
+                        lineOutTime = addDays(lineOutTime, 1);
+                    }
+                }
+                
+                if (shiftStartTime && lineOutTime < shiftStartTime) {
+                    lineOutTime = addDays(lineOutTime, 1);
+                }
+                
+                const diffMinsOut = differenceInMinutes(lineOutTime, shiftEndTime);
+                absCheckOutDev = Math.abs(diffMinsOut);
+                varCheckOut = diffMinsOut > 0 ? `+${diffMinsOut}m` : `${diffMinsOut}m`;
+                if (diffMinsOut < -15) {
+                    hasCheckOutDeviation = true;
+                }
+            }
+
+            let isPdaWrong = false;
+            if (aggregatedLine.lineIn && fpIn && aggregatedLine.lineOut && fpOut) {
+                let lineInTime = parseTimeStr(aggregatedLine.lineIn, dateObj);
+                let fpInTime = parseTimeStr(fpIn, dateObj);
+                let lineOutTime = parseTimeStr(aggregatedLine.lineOut, dateObj);
+                let fpOutTime = parseTimeStr(fpOut, dateObj);
+
+                if (isNightShift) {
+                    if (lineInTime.getHours() < 15) lineInTime = addDays(lineInTime, 1);
+                    if (fpInTime.getHours() < 15) fpInTime = addDays(fpInTime, 1);
+                    if (lineOutTime.getHours() < 15) lineOutTime = addDays(lineOutTime, 1);
+                    if (fpOutTime.getHours() < 15) fpOutTime = addDays(fpOutTime, 1);
+                }
+
+                if (lineOutTime < lineInTime) lineOutTime = addDays(lineOutTime, 1);
+                if (fpOutTime < fpInTime) fpOutTime = addDays(fpOutTime, 1);
+
+                const diffIn = Math.abs(differenceInMinutes(lineInTime, fpInTime));
+                const diffOut = Math.abs(differenceInMinutes(lineOutTime, fpOutTime));
+
+                if (diffIn + diffOut > 400) {
+                    isPdaWrong = true;
+                }
+            }
+
+            let isWrongShift = false;
+
+            if (shiftConf) {
+                if (!isNightShift) {
+                    // Ca sáng
+                    const isFpNightIn = fpIn && fpIn >= '17:00';
+                    const isLineNightIn = aggregatedLine.lineIn && aggregatedLine.lineIn >= '17:00';
+                    if (isFpNightIn && isLineNightIn) {
+                        isWrongShift = true;
+                    }
+                } else {
+                    // Ca đêm
+                    const isFpDayIn = fpIn && fpIn >= '05:00' && fpIn < '17:00';
+                    const isLineDayIn = aggregatedLine.lineIn && aggregatedLine.lineIn >= '05:00' && aggregatedLine.lineIn < '17:00';
+                    if (isFpDayIn && isLineDayIn) {
+                        isWrongShift = true;
+                    }
+                }
+            }
+
+            let reason = '';
+            if (shiftCode === '') {
+                if (!fpIn && !fpOut && (empLds.length === 0 || (!aggregatedLine.lineIn && !aggregatedLine.lineOut))) {
+                    reason = 'Không đăng kí ca và không đi làm';
+                } else {
+                    reason = 'Đi làm nhưng không đăng kí ca';
+                }
+            } else if (!shiftConf) {
+                reason = 'Ca không có trên hệ thống';
+            } else if (!fpIn && !fpOut && (empLds.length === 0 || (!aggregatedLine.lineIn && !aggregatedLine.lineOut))) {
+                reason = 'Không đi làm nhưng có đăng kí ca';
+            } else if (!fpIn || !fpOut) {
+                reason = 'Thiếu vân tay IN/OUT';
+            } else if (isPdaWrong) {
+                reason = 'PDA sai';
+            } else if (isWrongShift) {
+                reason = 'Sai ca';
+            } else if (empLds.length === 0 || lineInStr === 'N/A' || lineOutStr === 'N/A') {
+                if (diff !== 0) {
+                    reason = 'Thiếu dữ liệu Line IN/OUT không xác định được OT';
+                } else {
+                    reason = 'Thiếu dữ liệu Line IN/OUT';
+                }
+            } else if (diff > 0) {
+                reason = `Lệch: OT Vân tay lớn hơn OT Line`;
+            } else if (diff < 0) {
+                reason = `Lệch: OT Line lớn hơn OT Vân tay`;
+            } else if (hasCheckInDeviation) {
+                reason = 'Checkin line trễ';
+            } else if (hasCheckOutDeviation) {
+                reason = 'Check out line sớm';
+            } else {
+                reason = 'Hợp lệ';
+            }
+            
+            // Skip empty rows to avoid cluttering the report
+            if (reason === 'Không đăng kí ca và không đi làm') {
+                continue;
+            }
+
+            let status: 'VALID' | 'VERIFY NEEDED' | 'REMINDER' = 'VALID';
+            if (
+                reason === 'Thiếu dữ liệu Line IN/OUT' || 
+                reason === 'Không đi làm nhưng có đăng kí ca' ||
+                reason === 'Checkin line trễ' ||
+                reason === 'Check out line sớm' ||
+                reason === 'Lệch: OT Line lớn hơn OT Vân tay'
+            ) {
+                status = 'REMINDER';
+            }
+            if (
+                reason === 'Thiếu vân tay IN/OUT' || 
+                reason === 'Ca không có trên hệ thống' || 
+                reason === 'Đi làm nhưng không đăng kí ca' ||
+                reason === 'Sai ca' ||
+                reason === 'PDA sai' ||
+                reason === 'Thiếu dữ liệu Line IN/OUT không xác định được OT' ||
+                (diff !== 0 && reason !== 'Thiếu dữ liệu Line IN/OUT' && reason !== 'Thiếu dữ liệu Line IN/OUT không xác định được OT' && reason !== 'Lệch: OT Line lớn hơn OT Vân tay' && reason !== 'Sai ca' && reason !== 'PDA sai')
+            ) {
+                status = 'VERIFY NEEDED';
+            }
+
+            results.push({
+                employeeCode: empCode,
+                fullName: emp.fullName,
+                leader: leader,
+                date: dateStr,
+                shift: shiftCode,
+                fpIn: fpIn || 'N/A',
+                fpOut: fpOut || 'N/A',
+                lineIn: lineInStr,
+                lineOut: lineOutStr,
+                otFp,
+                otLine,
+                diff,
+                varCheckIn,
+                varCheckOut,
+                reason,
+                status,
+                joiningDate,
+                lwd,
+                lineLeader,
+                shiftLeader: shiftLeaderVal,
+                supervisor: supervisorVal,
+                mgt: mgtVal
+            });
         }
 
         return NextResponse.json({ 

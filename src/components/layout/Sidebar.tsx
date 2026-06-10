@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/AuthContext'
-import { LogOut, LayoutDashboard, Users, FileText, ClipboardCheck, Fingerprint, ChevronLeft, ChevronRight, Clock, FileSpreadsheet, Database, PieChart, UserCircle } from 'lucide-react'
+import { LogOut, LayoutDashboard, Users, FileText, ClipboardCheck, Fingerprint, ChevronLeft, ChevronRight, Clock, FileSpreadsheet, Database, PieChart, UserCircle, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -27,6 +27,7 @@ export default function Sidebar() {
                 { label: 'Báo cáo', href: '/clerk/reports', icon: FileText },
                 { label: 'Dữ liệu Hệ thống', href: '/clerk/data', icon: Database },
                 { label: 'So sánh Line Data', href: '/clerk/compare-line-data', icon: ClipboardCheck },
+                { label: 'Lịch nghỉ phép', href: '/clerk/leave', icon: CalendarDays },
             ]
         }
         return [

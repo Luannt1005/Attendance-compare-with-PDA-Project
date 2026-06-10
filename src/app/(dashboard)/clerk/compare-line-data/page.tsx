@@ -24,6 +24,12 @@ interface CompareResult {
     varCheckOut: string;
     reason: string;
     status: 'VALID' | 'VERIFY NEEDED' | 'REMINDER';
+    joiningDate?: string;
+    lwd?: string;
+    lineLeader?: string;
+    shiftLeader?: string;
+    supervisor?: string;
+    mgt?: string;
 }
 
 export default function CompareLineDataPage() {
@@ -106,7 +112,13 @@ export default function CompareLineDataPage() {
                 'OT Line (h)': r.otLine,
                 'Chênh lệch OT (h)': r.diff,
                 'Lý do': r.reason,
-                'Trạng thái': r.status === 'VALID' ? 'Hợp lệ' : r.status === 'VERIFY NEEDED' ? 'Cần xác minh' : 'Nhắc nhở'
+                'Trạng thái': r.status === 'VALID' ? 'Hợp lệ' : r.status === 'VERIFY NEEDED' ? 'Cần xác minh' : 'Nhắc nhở',
+                'Joining date': r.joiningDate || '',
+                'LWD': r.lwd || '',
+                'Line Leader': r.lineLeader || '',
+                'Shift Leader': r.shiftLeader || '',
+                'Supervisor': r.supervisor || '',
+                'Mgt (group)': r.mgt || ''
             }))
 
             const worksheet = XLSX.utils.json_to_sheet(exportData)
