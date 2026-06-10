@@ -521,10 +521,7 @@ export async function POST(req: Request) {
                 reason = 'Hợp lệ';
             }
             
-            // Skip empty rows to avoid cluttering the report
-            if (reason === 'Không đăng kí ca và không đi làm') {
-                continue;
-            }
+            // Do not skip empty rows so the import count matches the file exactly
 
             let status: 'VALID' | 'VERIFY NEEDED' | 'REMINDER' = 'VALID';
             if (
