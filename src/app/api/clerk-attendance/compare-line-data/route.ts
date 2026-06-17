@@ -225,10 +225,8 @@ export async function POST(req: Request) {
         });
 
         // Helper function for OT calculation
-        function calcOT(inStr: string | null, outStr: string | null, shiftCode: string, dateObj: Date) {
-            if (!inStr || !outStr || !shiftCode) return 0;
-            const conf = shiftMap.get(shiftCode);
-            if (!conf) return 0;
+        function calcOT(inStr: string | null, outStr: string | null, conf: any, dateObj: Date) {
+            if (!inStr || !outStr || !conf) return 0;
             
             let expectedOt = 0;
             let actIn = parseTimeStr(inStr, dateObj);
@@ -313,7 +311,49 @@ export async function POST(req: Request) {
             const fpToday = fingerprints.find(f => f.employeeId === emp.id && format(f.recordDate, 'yyyy-MM-dd') === dateStr);
             const fpNext = fingerprints.find(f => f.employeeId === emp.id && format(f.recordDate, 'yyyy-MM-dd') === format(addDays(dateObj, 1), 'yyyy-MM-dd'));
 
-            const shiftConf = shiftMap.get(shiftCode);
+            let actualShiftCode = shiftCode;
+            let isHalfLeaveFirst = false; // T
+            let isHalfLeaveSecond = false; // S
+
+            if (shiftCode.includes('/')) {
+                const parts = shiftCode.split('/');
+                if (parts.length === 2) {
+                    const lPart = parts[1].toUpperCase();
+                    if (lPart.endsWith('2T')) {
+                        actualShiftCode = parts[0];
+                        isHalfLeaveFirst = true;
+                    } else if (lPart.endsWith('2S')) {
+                        actualShiftCode = parts[0];
+                        isHalfLeaveSecond = true;
+                    }
+                }
+            }
+
+            let shiftConf = shiftMap.get(actualShiftCode);
+            let originalIsNight = false;
+            if (shiftConf && shiftConf.startTime && shiftConf.endTime) {
+                originalIsNight = parseTimeStr(shiftConf.endTime, dateObj) < parseTimeStr(shiftConf.startTime, dateObj);
+            }
+
+            if (shiftConf && shiftConf.startTime && shiftConf.endTime && (isHalfLeaveFirst || isHalfLeaveSecond)) {
+                shiftConf = { ...shiftConf };
+                shiftConf.isLeave = false;
+                
+                if (isHalfLeaveFirst) {
+                    let [h, m] = shiftConf.startTime.split(':').map(Number);
+                    h = (h + 4) % 24;
+                    shiftConf.startTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                } else if (isHalfLeaveSecond) {
+                    let [h, m] = shiftConf.endTime.split(':').map(Number);
+                    h = (h - 4 + 24) % 24;
+                    shiftConf.endTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                }
+            } else if (!shiftConf) {
+                shiftConf = shiftMap.get(shiftCode);
+                if (shiftConf && shiftConf.startTime && shiftConf.endTime) {
+                    originalIsNight = parseTimeStr(shiftConf.endTime, dateObj) < parseTimeStr(shiftConf.startTime, dateObj);
+                }
+            }
 
             const joiningDate = emp.joinDate ? format(emp.joinDate, 'yyyy-MM-dd') : '';
             const lwd = emp.resignDate ? format(emp.resignDate, 'yyyy-MM-dd') : '';
@@ -349,7 +389,7 @@ export async function POST(req: Request) {
                 });
                 continue;
             }
-            const isNight = shiftConf && parseTimeStr(shiftConf.endTime, dateObj) < parseTimeStr(shiftConf.startTime, dateObj);
+            const isNight = originalIsNight;
             
             let fpIn = null;
             let fpOut = null;
@@ -379,17 +419,17 @@ export async function POST(req: Request) {
             }
 
             // Aggregate multiple line records to earliest check-in and latest check-out
-            const isNightShift = shiftConf && parseTimeStr(shiftConf.endTime, dateObj) < parseTimeStr(shiftConf.startTime, dateObj);
+            const isNightShift = originalIsNight;
             const aggregatedLine = getEarliestLatestLine(empLds, !!isNightShift, dateObj);
 
             const lineInStr = aggregatedLine.lineIn || 'N/A';
             const lineOutStr = aggregatedLine.lineOut || 'N/A';
 
-            let otFp = calcOT(fpIn, fpOut, shiftCode, dateObj);
+            let otFp = calcOT(fpIn, fpOut, shiftConf, dateObj);
             if (otFp < 0.5) {
                 otFp = 0;
             }
-            let otLine = calcOT(aggregatedLine.lineIn, aggregatedLine.lineOut, shiftCode, dateObj);
+            let otLine = calcOT(aggregatedLine.lineIn, aggregatedLine.lineOut, shiftConf, dateObj);
             if (otLine < 0.5) {
                 otLine = 0;
             }
@@ -422,8 +462,10 @@ export async function POST(req: Request) {
                 let shiftEndTime = parseTimeStr(shiftConf.endTime, dateObj);
                 let shiftStartTime = shiftConf.startTime ? parseTimeStr(shiftConf.startTime, dateObj) : null;
                 
-                if (isNightShift) {
-                    shiftEndTime = addDays(shiftEndTime, 1);
+                if (originalIsNight) {
+                    if (shiftEndTime.getHours() < 15) {
+                        shiftEndTime = addDays(shiftEndTime, 1);
+                    }
                     if (lineOutTime.getHours() < 15) {
                         lineOutTime = addDays(lineOutTime, 1);
                     }
