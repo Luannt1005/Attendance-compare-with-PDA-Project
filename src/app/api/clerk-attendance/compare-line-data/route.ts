@@ -511,19 +511,23 @@ export async function POST(req: Request) {
             let isWrongShift = false;
 
             if (shiftConf) {
-                if (!isNightShift) {
+                if (!originalIsNight) {
                     // Ca sáng
-                    const isFpNightIn = fpIn && fpIn >= '17:00';
-                    const isLineNightIn = aggregatedLine.lineIn && aggregatedLine.lineIn >= '17:00';
-                    if (isFpNightIn && isLineNightIn) {
-                        isWrongShift = true;
+                    if (!(shiftConf.startTime && shiftConf.startTime >= '17:00')) {
+                        const isFpNightIn = fpIn && fpIn >= '17:00';
+                        const isLineNightIn = aggregatedLine.lineIn && aggregatedLine.lineIn >= '17:00';
+                        if (isFpNightIn && isLineNightIn) {
+                            isWrongShift = true;
+                        }
                     }
                 } else {
                     // Ca đêm
-                    const isFpDayIn = fpIn && fpIn >= '05:00' && fpIn < '17:00';
-                    const isLineDayIn = aggregatedLine.lineIn && aggregatedLine.lineIn >= '05:00' && aggregatedLine.lineIn < '17:00';
-                    if (isFpDayIn && isLineDayIn) {
-                        isWrongShift = true;
+                    if (!(shiftConf.startTime && shiftConf.startTime >= '05:00' && shiftConf.startTime < '17:00')) {
+                        const isFpDayIn = fpIn && fpIn >= '05:00' && fpIn < '17:00';
+                        const isLineDayIn = aggregatedLine.lineIn && aggregatedLine.lineIn >= '05:00' && aggregatedLine.lineIn < '17:00';
+                        if (isFpDayIn && isLineDayIn) {
+                            isWrongShift = true;
+                        }
                     }
                 }
 
