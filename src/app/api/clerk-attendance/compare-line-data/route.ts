@@ -526,6 +526,28 @@ export async function POST(req: Request) {
                         isWrongShift = true;
                     }
                 }
+
+                if (!isWrongShift && (isHalfLeaveFirst || isHalfLeaveSecond)) {
+                    let actualInTimeStr = fpIn || aggregatedLine.lineIn;
+                    if (actualInTimeStr) {
+                        let actualIn = parseTimeStr(actualInTimeStr, dateObj);
+                        let expectedIn = parseTimeStr(shiftConf.startTime, dateObj);
+                        
+                        if (originalIsNight) {
+                            if (actualIn.getHours() < 15) actualIn = addDays(actualIn, 1);
+                            if (expectedIn.getHours() < 15) expectedIn = addDays(expectedIn, 1);
+                        }
+
+                        const diffMins = differenceInMinutes(actualIn, expectedIn);
+                        
+                        if (isHalfLeaveFirst && diffMins < -120) {
+                            isWrongShift = true;
+                        }
+                        if (isHalfLeaveSecond && diffMins > 120) {
+                            isWrongShift = true;
+                        }
+                    }
+                }
             }
 
             let reason = '';
