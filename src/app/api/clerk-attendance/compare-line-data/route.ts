@@ -459,7 +459,12 @@ export async function POST(req: Request) {
             if (otFp < 0.5) {
                 otFp = 0;
             }
-            let otLine = calcOT(aggregatedLine.lineIn, aggregatedLine.lineOut, shiftConf, dateObj);
+            
+            let lineInForOT = aggregatedLine.lineIn;
+            if (originalIsNight && shiftStart !== 'N/A') {
+                lineInForOT = shiftStart;
+            }
+            let otLine = calcOT(lineInForOT, aggregatedLine.lineOut, shiftConf, dateObj);
             if (otLine < 0.5) {
                 otLine = 0;
             }
