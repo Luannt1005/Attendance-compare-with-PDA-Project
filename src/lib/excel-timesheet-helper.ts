@@ -5,7 +5,7 @@ import { prisma } from './prisma';
 import { format, eachDayOfInterval } from 'date-fns';
 import * as path from 'path';
 
-const EXCEL_PATH = 'V:\\Production\\Share\\PT Tool\\01.Sản xuất MIL-Console-Clerk Team\\01. Chấm Công_Attendance\\01. BCC Console\\06.BCC-2026\\04. T04-2026\\01.Sang_ Apr_2026 Attendance OT Production.xlsx';
+const EXCEL_PATH = '\\\\vn.globaltti.net\\Vietnam\\Production\\Share\\PT Tool\\01.Sản xuất MIL-Console-Clerk Team\\01. Chấm Công_Attendance\\01. BCC Console\\06.BCC-2026\\04. T04-2026\\01.Sang_ Apr_2026 Attendance OT Production.xlsx';
 
 export async function getAprilExcelData(leaderId?: string | null) {
     try {
@@ -201,7 +201,7 @@ export async function getMonthExcelData(targetMonth: string) {
     const targetYear = parseInt(yearStr);
     const targetMonthIndex = parseInt(monthStr) - 1; // 0-based
 
-    const baseDir = 'V:\\Production\\Share\\PT Tool\\01.Sản xuất MIL-Console-Clerk Team\\01. Chấm Công_Attendance\\01. BCC Console';
+    const baseDir = '\\\\vn.globaltti.net\\Vietnam\\Production\\Share\\PT Tool\\01.Sản xuất MIL-Console-Clerk Team\\01. Chấm Công_Attendance\\01. BCC Console';
     if (!fs.existsSync(baseDir)) {
         throw new Error(`Base directory does not exist or network drive not accessible: ${baseDir}`);
     }

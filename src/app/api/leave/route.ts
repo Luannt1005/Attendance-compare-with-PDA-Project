@@ -93,8 +93,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
     try {
-        const targetFile = 'V:\\MIL_Indirect_Material\\Public\\Data and Project Team\\Luan\\Leave List\\Leave.xlsx';
-        const fallbackFile = 'V:\\MIL_Indirect_Material\\Public\\Data and Project Team\\Luan\\Leave List\\Leave list Level 03.xlsx';
+        const targetFile = '\\\\vn.globaltti.net\\Vietnam\\MIL_Indirect_Material\\Public\\Data and Project Team\\Luan\\Leave List\\Leave.xlsx';
+        const fallbackFile = '\\\\vn.globaltti.net\\Vietnam\\MIL_Indirect_Material\\Public\\Data and Project Team\\Luan\\Leave List\\Leave list Level 03.xlsx';
 
         let filePath = targetFile;
         let fileExists = fs.existsSync(targetFile);
