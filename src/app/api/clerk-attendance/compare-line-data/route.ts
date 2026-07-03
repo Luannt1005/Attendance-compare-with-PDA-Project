@@ -533,21 +533,30 @@ export async function POST(req: Request) {
 
                 if (!isWrongShift && (isHalfLeaveFirst || isHalfLeaveSecond)) {
                     let actualInTimeStr = fpIn || aggregatedLine.lineIn;
-                    if (actualInTimeStr) {
+                    let actualOutTimeStr = fpOut || aggregatedLine.lineOut;
+                    if (actualInTimeStr && actualOutTimeStr) {
                         let actualIn = parseTimeStr(actualInTimeStr, dateObj);
                         let expectedIn = parseTimeStr(shiftConf.startTime, dateObj);
+                        let actualOut = parseTimeStr(actualOutTimeStr, dateObj);
+                        let expectedOut = parseTimeStr(shiftConf.endTime, dateObj);
                         
                         if (originalIsNight) {
                             if (actualIn.getHours() < 15) actualIn = addDays(actualIn, 1);
                             if (expectedIn.getHours() < 15) expectedIn = addDays(expectedIn, 1);
+                            if (actualOut.getHours() < 15) actualOut = addDays(actualOut, 1);
+                            if (expectedOut.getHours() < 15) expectedOut = addDays(expectedOut, 1);
                         }
 
-                        const diffMins = differenceInMinutes(actualIn, expectedIn);
+                        if (expectedOut < expectedIn) expectedOut = addDays(expectedOut, 1);
+                        if (actualOut < actualIn) actualOut = addDays(actualOut, 1);
+
+                        const diffMinsIn = differenceInMinutes(actualIn, expectedIn);
+                        const diffMinsOut = differenceInMinutes(actualOut, expectedOut);
                         
-                        if (isHalfLeaveFirst && diffMins < -120) {
+                        if (isHalfLeaveFirst && diffMinsIn < -120 && diffMinsOut < -120) {
                             isWrongShift = true;
                         }
-                        if (isHalfLeaveSecond && diffMins > 120) {
+                        if (isHalfLeaveSecond && diffMinsIn > 120 && diffMinsOut > 120) {
                             isWrongShift = true;
                         }
                     }
