@@ -27,7 +27,7 @@ export default function Sidebar() {
                 { label: 'Báo cáo', href: '/clerk/reports', icon: FileText },
                 { label: 'Dữ liệu Hệ thống', href: '/clerk/data', icon: Database },
                 { label: 'So sánh Line Data', href: '/clerk/compare-line-data', icon: ClipboardCheck },
-                { label: 'Lịch nghỉ phép', href: '/clerk/leave', icon: CalendarDays },
+                // { label: 'Lịch nghỉ phép', href: '/clerk/leave', icon: CalendarDays },
                 // { label: 'Đăng kí phép', href: '/clerk/register-leave', icon: CalendarPlus },
             ]
         }
