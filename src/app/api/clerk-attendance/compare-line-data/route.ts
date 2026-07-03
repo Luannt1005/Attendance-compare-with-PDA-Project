@@ -425,6 +425,36 @@ export async function POST(req: Request) {
             const lineInStr = aggregatedLine.lineIn || 'N/A';
             const lineOutStr = aggregatedLine.lineOut || 'N/A';
 
+            let shiftStart = 'N/A';
+            if (!originalIsNight) {
+                shiftStart = shiftConf ? shiftConf.startTime : 'N/A';
+            } else {
+                if (fpIn && aggregatedLine.lineIn) {
+                    let [lH, lM] = aggregatedLine.lineIn.split(':').map(Number);
+                    if (lH < 15) lH += 24;
+                    const lineInMins = lH * 60 + lM;
+                    const floorMins = Math.floor(lineInMins / 15) * 15;
+                    const ceilMins = Math.ceil(lineInMins / 15) * 15;
+
+                    let [fH, fM] = fpIn.split(':').map(Number);
+                    if (fH < 15) fH += 24;
+                    const fpInMins = fH * 60 + fM;
+
+                    let finalMins = 0;
+                    if (floorMins >= fpInMins) {
+                        finalMins = floorMins;
+                    } else {
+                        finalMins = ceilMins;
+                    }
+                    if (finalMins >= 1440) {
+                        finalMins = finalMins % 1440;
+                    }
+                    shiftStart = `${String(Math.floor(finalMins / 60)).padStart(2, '0')}:${String(finalMins % 60).padStart(2, '0')}`;
+                } else {
+                    shiftStart = shiftConf ? shiftConf.startTime : 'N/A';
+                }
+            }
+
             let otFp = calcOT(fpIn, fpOut, shiftConf, dateObj);
             if (otFp < 0.5) {
                 otFp = 0;
@@ -628,6 +658,7 @@ export async function POST(req: Request) {
                 leader: leader,
                 date: dateStr,
                 shift: shiftCode,
+                shiftStart,
                 fpIn: fpIn || 'N/A',
                 fpOut: fpOut || 'N/A',
                 lineIn: lineInStr,
