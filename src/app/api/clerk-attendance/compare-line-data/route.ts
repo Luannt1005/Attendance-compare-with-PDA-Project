@@ -391,7 +391,15 @@ export async function POST(req: Request) {
                 }
             }
 
+            // Aggregate multiple line records to earliest check-in and latest check-out
+            const isNightShift = originalIsNight;
+            const aggregatedLine = getEarliestLatestLine(empLds, !!isNightShift, dateObj);
+
+            const lineInStr = aggregatedLine.lineIn || 'N/A';
+            const lineOutStr = aggregatedLine.lineOut || 'N/A';
+
             if (shiftConf && shiftConf.isLeave) {
+                const hasWorkingData = fpIn || (lineInStr !== 'N/A') || (lineOutStr !== 'N/A');
                 results.push({
                     employeeCode: empCode,
                     fullName: emp.fullName,
@@ -401,15 +409,15 @@ export async function POST(req: Request) {
                     shiftStart: 'N/A',
                     fpIn: fpIn || 'N/A',
                     fpOut: fpOut || 'N/A',
-                    lineIn: 'N/A',
-                    lineOut: 'N/A',
+                    lineIn: lineInStr,
+                    lineOut: lineOutStr,
                     otFp: 0,
                     otLine: 0,
                     diff: 0,
                     varCheckIn: 'N/A',
                     varCheckOut: 'N/A',
-                    reason: (fpIn || fpOut) ? 'Có đi làm nhưng bị chấm phép' : 'Nghỉ phép',
-                    status: (fpIn || fpOut) ? 'INVALID' : 'VALID',
+                    reason: hasWorkingData ? 'Có đi làm nhưng bị chấm phép' : 'Nghỉ phép',
+                    status: hasWorkingData ? 'VERIFY' : 'VALID',
                     joiningDate,
                     lwd,
                     lineLeader,
@@ -419,13 +427,6 @@ export async function POST(req: Request) {
                 });
                 continue;
             }
-
-            // Aggregate multiple line records to earliest check-in and latest check-out
-            const isNightShift = originalIsNight;
-            const aggregatedLine = getEarliestLatestLine(empLds, !!isNightShift, dateObj);
-
-            const lineInStr = aggregatedLine.lineIn || 'N/A';
-            const lineOutStr = aggregatedLine.lineOut || 'N/A';
 
             let shiftStart = 'N/A';
             if (!originalIsNight) {
