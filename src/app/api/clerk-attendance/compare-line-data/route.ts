@@ -362,33 +362,6 @@ export async function POST(req: Request) {
             const supervisorVal = emp.supervisor || '';
             const mgtVal = emp.mgt || '';
 
-            if (shiftConf && shiftConf.isLeave) {
-                results.push({
-                    employeeCode: empCode,
-                    fullName: emp.fullName,
-                    leader: leader,
-                    date: dateStr,
-                    shift: shiftCode,
-                    fpIn: 'N/A',
-                    fpOut: 'N/A',
-                    lineIn: 'N/A',
-                    lineOut: 'N/A',
-                    otFp: 0,
-                    otLine: 0,
-                    diff: 0,
-                    varCheckIn: 'N/A',
-                    varCheckOut: 'N/A',
-                    reason: 'Nghỉ phép',
-                    status: 'VALID',
-                    joiningDate,
-                    lwd,
-                    lineLeader,
-                    shiftLeader: shiftLeaderVal,
-                    supervisor: supervisorVal,
-                    mgt: mgtVal
-                });
-                continue;
-            }
             const isNight = originalIsNight;
             
             let fpIn = null;
@@ -416,6 +389,35 @@ export async function POST(req: Request) {
                         fpOut = parsedToday.outTime;
                     }
                 }
+            }
+
+            if (shiftConf && shiftConf.isLeave) {
+                results.push({
+                    employeeCode: empCode,
+                    fullName: emp.fullName,
+                    leader: leader,
+                    date: dateStr,
+                    shift: shiftCode,
+                    shiftStart: 'N/A',
+                    fpIn: fpIn || 'N/A',
+                    fpOut: fpOut || 'N/A',
+                    lineIn: 'N/A',
+                    lineOut: 'N/A',
+                    otFp: 0,
+                    otLine: 0,
+                    diff: 0,
+                    varCheckIn: 'N/A',
+                    varCheckOut: 'N/A',
+                    reason: 'Nghỉ phép',
+                    status: 'VALID',
+                    joiningDate,
+                    lwd,
+                    lineLeader,
+                    shiftLeader: shiftLeaderVal,
+                    supervisor: supervisorVal,
+                    mgt: mgtVal
+                });
+                continue;
             }
 
             // Aggregate multiple line records to earliest check-in and latest check-out
