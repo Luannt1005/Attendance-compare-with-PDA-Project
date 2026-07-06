@@ -639,7 +639,7 @@ export async function POST(req: Request) {
                 } else {
                     reason = 'Thiếu dữ liệu Line IN/OUT';
                 }
-            } else if (diff > 0) {
+            } else if (diff > 0.25) {
                 reason = `Lệch: OT Vân tay lớn hơn OT Line`;
             } else if (diff < 0) {
                 reason = `Lệch: OT Line lớn hơn OT Vân tay`;
