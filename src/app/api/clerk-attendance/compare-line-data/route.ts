@@ -362,7 +362,23 @@ export async function POST(req: Request) {
             const supervisorVal = emp.supervisor || '';
             const mgtVal = emp.mgt || '';
 
-            const isNight = originalIsNight;
+            let isNight = originalIsNight;
+            if (!isNight) {
+                let tempFpIn = null;
+                if (fpToday) {
+                    tempFpIn = extractInOut(fpToday.timeString).inTime;
+                }
+                let earliestLineIn = null;
+                for (const ld of empLds) {
+                    if (ld.lineIn && (!earliestLineIn || ld.lineIn < earliestLineIn)) {
+                        earliestLineIn = ld.lineIn;
+                    }
+                }
+                const firstIn = tempFpIn || earliestLineIn;
+                if (firstIn && firstIn >= '15:00') {
+                    isNight = true;
+                }
+            }
             
             let fpIn = null;
             let fpOut = null;
@@ -392,8 +408,7 @@ export async function POST(req: Request) {
             }
 
             // Aggregate multiple line records to earliest check-in and latest check-out
-            const isNightShift = originalIsNight;
-            const aggregatedLine = getEarliestLatestLine(empLds, !!isNightShift, dateObj);
+            const aggregatedLine = getEarliestLatestLine(empLds, !!isNight, dateObj);
 
             const lineInStr = aggregatedLine.lineIn || 'N/A';
             const lineOutStr = aggregatedLine.lineOut || 'N/A';
