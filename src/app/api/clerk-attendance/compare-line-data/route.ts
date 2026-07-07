@@ -363,20 +363,25 @@ export async function POST(req: Request) {
             const mgtVal = emp.mgt || '';
 
             let isNight = originalIsNight;
+            let tempFpIn = null;
+            if (fpToday) {
+                tempFpIn = extractInOut(fpToday.timeString).inTime;
+            }
+            let earliestLineIn = null;
+            for (const ld of empLds) {
+                if (ld.lineIn && (!earliestLineIn || ld.lineIn < earliestLineIn)) {
+                    earliestLineIn = ld.lineIn;
+                }
+            }
+            const firstIn = tempFpIn || earliestLineIn;
+            
             if (!isNight) {
-                let tempFpIn = null;
-                if (fpToday) {
-                    tempFpIn = extractInOut(fpToday.timeString).inTime;
-                }
-                let earliestLineIn = null;
-                for (const ld of empLds) {
-                    if (ld.lineIn && (!earliestLineIn || ld.lineIn < earliestLineIn)) {
-                        earliestLineIn = ld.lineIn;
-                    }
-                }
-                const firstIn = tempFpIn || earliestLineIn;
                 if (firstIn && firstIn >= '15:00') {
                     isNight = true;
+                }
+            } else {
+                if (firstIn && firstIn < '15:00') {
+                    isNight = false;
                 }
             }
             
@@ -496,10 +501,14 @@ export async function POST(req: Request) {
             }
             
             let lineInForOT = aggregatedLine.lineIn;
+            let lineOutForOT = aggregatedLine.lineOut;
             if (originalIsNight && shiftStart !== 'N/A') {
                 lineInForOT = shiftStart;
             }
-            let otLine = calcOT(lineInForOT, aggregatedLine.lineOut, shiftConf, dateObj);
+            if (!originalIsNight && shiftEnd !== 'N/A') {
+                lineOutForOT = shiftEnd;
+            }
+            let otLine = calcOT(lineInForOT, lineOutForOT, shiftConf, dateObj);
             if (otLine < 0.5) {
                 otLine = 0;
             }
