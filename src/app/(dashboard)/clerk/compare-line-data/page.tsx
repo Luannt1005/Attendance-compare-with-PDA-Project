@@ -103,6 +103,7 @@ export default function CompareLineDataPage() {
                 'Họ và tên': r.fullName,
                 'Ca làm việc': r.shift,
                 'Shift Start': r.shiftStart,
+                'Shift End': r.shiftEnd,
                 'Ngày': r.date,
                 'Giờ vân tay IN': r.fpIn,
                 'Giờ vân tay OUT': r.fpOut,
@@ -370,6 +371,7 @@ export default function CompareLineDataPage() {
                                     <th className="px-6 py-3.5">Nhân viên</th>
                                     <th className="px-6 py-3.5 text-center">Ca</th>
                                     <th className="px-6 py-3.5 text-center">Shift Start</th>
+                                    <th className="px-6 py-3.5 text-center">Shift End</th>
                                     <th className="px-6 py-3.5">Ngày</th>
                                     <th className="px-6 py-3.5">Giờ Vân tay</th>
                                     <th className="px-6 py-3.5">Giờ Line</th>
@@ -422,6 +424,7 @@ export default function CompareLineDataPage() {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-center font-semibold text-gray-700">{r.shiftStart}</td>
+                                        <td className="px-6 py-4 text-center font-semibold text-gray-700">{r.shiftEnd}</td>
                                         <td className="px-6 py-4 font-semibold text-gray-600">{r.date}</td>
                                         
                                         <td className="px-6 py-4">

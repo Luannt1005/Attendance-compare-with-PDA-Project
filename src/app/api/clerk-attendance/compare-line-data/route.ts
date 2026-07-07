@@ -422,6 +422,7 @@ export async function POST(req: Request) {
                     date: dateStr,
                     shift: shiftCode,
                     shiftStart: 'N/A',
+                    shiftEnd: 'N/A',
                     fpIn: fpIn || 'N/A',
                     fpOut: fpOut || 'N/A',
                     lineIn: lineInStr,
@@ -470,6 +471,22 @@ export async function POST(req: Request) {
                     shiftStart = `${String(Math.floor(finalMins / 60)).padStart(2, '0')}:${String(finalMins % 60).padStart(2, '0')}`;
                 } else {
                     shiftStart = shiftConf ? shiftConf.startTime : 'N/A';
+                }
+            }
+
+            let shiftEnd = 'N/A';
+            if (originalIsNight) {
+                shiftEnd = shiftConf ? shiftConf.endTime : 'N/A';
+            } else {
+                if (aggregatedLine.lineOut) {
+                    let [lH, lM] = aggregatedLine.lineOut.split(':').map(Number);
+                    let lineOutMins = lH * 60 + lM;
+                    let adjustedMins = lineOutMins + 5;
+                    let finalMins = Math.floor(adjustedMins / 15) * 15;
+                    finalMins = finalMins % 1440;
+                    shiftEnd = `${String(Math.floor(finalMins / 60)).padStart(2, '0')}:${String(finalMins % 60).padStart(2, '0')}`;
+                } else {
+                    shiftEnd = shiftConf ? shiftConf.endTime : 'N/A';
                 }
             }
 
@@ -682,6 +699,7 @@ export async function POST(req: Request) {
                 date: dateStr,
                 shift: shiftCode,
                 shiftStart,
+                shiftEnd,
                 fpIn: fpIn || 'N/A',
                 fpOut: fpOut || 'N/A',
                 lineIn: lineInStr,
