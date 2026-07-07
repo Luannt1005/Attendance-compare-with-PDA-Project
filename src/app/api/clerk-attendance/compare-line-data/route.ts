@@ -495,7 +495,7 @@ export async function POST(req: Request) {
             if (aggregatedLine.lineIn && shiftConf && shiftConf.startTime) {
                 let lineInTime = parseTimeStr(aggregatedLine.lineIn, dateObj);
                 let shiftStartTime = parseTimeStr(shiftConf.startTime, dateObj);
-                if (isNightShift) {
+                if (isNight) {
                     if (lineInTime.getHours() < 15) lineInTime = addDays(lineInTime, 1);
                     if (shiftStartTime.getHours() < 15) shiftStartTime = addDays(shiftStartTime, 1);
                 }
@@ -543,7 +543,7 @@ export async function POST(req: Request) {
                 let lineOutTime = parseTimeStr(aggregatedLine.lineOut, dateObj);
                 let fpOutTime = parseTimeStr(fpOut, dateObj);
 
-                if (isNightShift) {
+                if (isNight) {
                     if (lineInTime.getHours() < 15) lineInTime = addDays(lineInTime, 1);
                     if (fpInTime.getHours() < 15) fpInTime = addDays(fpInTime, 1);
                     if (lineOutTime.getHours() < 15) lineOutTime = addDays(lineOutTime, 1);
