@@ -6,14 +6,30 @@ export function parseTimeStr(timeStr: string, baseDate: Date, isNextDay = false)
     return isNextDay ? addDays(d, 1) : d
 }
 
-// Extract IN: and OUT: from "IN: 05:43, OUT: 17:41"
+// Extract IN: and OUT: from "IN: 05:43; 05:45, OUT: 17:41; 18:15"
 export function extractInOut(timeString: string): { inTime: string | null, outTime: string | null } {
-    const inMatch = timeString.match(/IN:\s*(\d{2}:\d{2})/)
-    const outMatch = timeString.match(/OUT:\s*(\d{2}:\d{2})/)
-    return {
-        inTime: inMatch ? inMatch[1] : null,
-        outTime: outMatch ? outMatch[1] : null
+    const inMatch = timeString.match(/IN:\s*([^,]+)/)
+    const outMatch = timeString.match(/OUT:\s*(.+)/)
+
+    let inTime = null;
+    let outTime = null;
+
+    if (inMatch) {
+        const times = inMatch[1].match(/\d{2}:\d{2}/g);
+        if (times && times.length > 0) {
+            inTime = times.sort()[0]; // earliest
+        }
     }
+
+    if (outMatch) {
+        const times = outMatch[1].match(/\d{2}:\d{2}/g);
+        if (times && times.length > 0) {
+            times.sort();
+            outTime = times[times.length - 1]; // latest
+        }
+    }
+
+    return { inTime, outTime }
 }
 
 // Calculate overlap hours between two time ranges
