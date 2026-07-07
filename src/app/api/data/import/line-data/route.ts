@@ -5,12 +5,19 @@ import { isValid } from 'date-fns';
 
 function getFieldValue(row: any, keys: string[]): any {
     const lowercaseKeys = keys.map(k => k.trim().toLowerCase());
+    let fallbackValue = undefined;
+    
     for (const [key, value] of Object.entries(row)) {
         if (lowercaseKeys.includes(key.trim().toLowerCase())) {
-            return value;
+            if (value !== undefined && value !== null && value !== '') {
+                return value; // Return first non-empty match
+            }
+            if (fallbackValue === undefined) {
+                fallbackValue = value;
+            }
         }
     }
-    return undefined;
+    return fallbackValue;
 }
 
 function parseExcelDate(dateVal: any, filterDate?: string): string | null {
@@ -120,7 +127,16 @@ function parseExcelTime(timeVal: any): string | null {
     const isPM = /pm/i.test(str);
     const isAM = /am/i.test(str);
 
-    const match = str.match(/(\d{1,2}):(\d{2})/);
+    // Try standard HH:mm or HHhmm or HH.mm
+    let match = str.match(/(\d{1,2})[:hH\.](\d{2})/);
+    
+    // If not matched, try HHmm format (e.g., 0600, 1809)
+    if (!match && /^\d{3,4}$/.test(str)) {
+        let h = str.length === 3 ? str.substring(0, 1) : str.substring(0, 2);
+        let m = str.length === 3 ? str.substring(1) : str.substring(2);
+        match = [str, h, m] as RegExpMatchArray;
+    }
+
     if (match) {
         let hours = parseInt(match[1], 10);
         const minutes = parseInt(match[2], 10);
