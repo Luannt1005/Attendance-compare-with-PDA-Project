@@ -698,7 +698,7 @@ export async function POST(req: Request) {
                 reason === 'Sai ca' ||
                 reason === 'PDA sai' ||
                 reason === 'Thiếu dữ liệu Line IN/OUT không xác định được OT' ||
-                (diff !== 0 && reason !== 'Thiếu dữ liệu Line IN/OUT' && reason !== 'Thiếu dữ liệu Line IN/OUT không xác định được OT' && reason !== 'Lệch: OT Line lớn hơn OT Vân tay' && reason !== 'Sai ca' && reason !== 'PDA sai')
+                reason === 'Lệch: OT Vân tay lớn hơn OT Line'
             ) {
                 status = 'VERIFY NEEDED';
             }
