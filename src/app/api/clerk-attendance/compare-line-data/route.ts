@@ -528,7 +528,7 @@ export async function POST(req: Request) {
                 const diffMins = differenceInMinutes(lineInTime, shiftStartTime);
                 absCheckInDev = Math.abs(diffMins);
                 varCheckIn = diffMins > 0 ? `+${diffMins}m` : `${diffMins}m`;
-                if (diffMins > 5) {
+                if (diffMins > 15) {
                     hasCheckInDeviation = true;
                 }
             }
