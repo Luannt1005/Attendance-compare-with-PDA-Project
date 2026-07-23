@@ -9,7 +9,7 @@ export async function GET(req: Request) {
         const emp = await prisma.employee.findUnique({
             where: { employeeCode: code },
             include: {
-                lineData: true,
+                lineDatas: true,
                 fingerprints: true
             }
         });
