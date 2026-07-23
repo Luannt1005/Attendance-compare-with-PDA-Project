@@ -14,6 +14,7 @@ interface CompareResult {
     date: string;
     shift: string;
     shiftStart: string;
+    shiftEnd: string;
     fpIn: string;
     fpOut: string;
     lineIn: string;
