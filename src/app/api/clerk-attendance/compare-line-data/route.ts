@@ -438,7 +438,7 @@ export async function POST(req: Request) {
                     varCheckIn: 'N/A',
                     varCheckOut: 'N/A',
                     reason: hasWorkingData ? 'Có đi làm nhưng bị chấm phép' : 'Nghỉ phép',
-                    status: hasWorkingData ? 'VERIFY' : 'VALID',
+                    status: hasWorkingData ? 'VERIFY NEEDED' : 'VALID',
                     joiningDate,
                     lwd,
                     lineLeader,
@@ -684,7 +684,6 @@ export async function POST(req: Request) {
             let status: 'VALID' | 'VERIFY NEEDED' | 'REMINDER' = 'VALID';
             if (
                 reason === 'Thiếu dữ liệu Line IN/OUT' || 
-                reason === 'Không đi làm nhưng có đăng kí ca' ||
                 reason === 'Checkin line trễ' ||
                 reason === 'Check out line sớm' ||
                 reason === 'Lệch: OT Line lớn hơn OT Vân tay'
@@ -695,6 +694,7 @@ export async function POST(req: Request) {
                 reason === 'Thiếu vân tay IN/OUT' || 
                 reason === 'Ca không có trên hệ thống' || 
                 reason === 'Đi làm nhưng không đăng kí ca' ||
+                reason === 'Không đi làm nhưng có đăng kí ca' ||
                 reason === 'Sai ca' ||
                 reason === 'PDA sai' ||
                 reason === 'Thiếu dữ liệu Line IN/OUT không xác định được OT' ||
