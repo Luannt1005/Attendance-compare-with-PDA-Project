@@ -396,7 +396,8 @@ export async function POST(req: Request) {
                 }
             }
             if (isNight) {
-                if (fpNext) {
+                const hasWorkingDataToday = !!fpToday || empLds.length > 0;
+                if (fpNext && hasWorkingDataToday) {
                     const parsedNext = extractInOut(fpNext.timeString);
                     if (parsedNext.outTime && parsedNext.outTime < '15:00') {
                         fpOut = parsedNext.outTime;
