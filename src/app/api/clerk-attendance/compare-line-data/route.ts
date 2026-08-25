@@ -364,23 +364,42 @@ export async function POST(req: Request) {
 
             let isNight = originalIsNight;
             let tempFpIn = null;
+            let hasEveningPunch = false;
+            let hasDaytimeOut = false; // To detect real day shifts (punch between 10:00 and 15:00)
+
             if (fpToday) {
-                tempFpIn = extractInOut(fpToday.timeString).inTime;
+                const parsed = extractInOut(fpToday.timeString);
+                tempFpIn = parsed.inTime;
+                
+                const punches = fpToday.timeString.match(/\d{2}:\d{2}/g) || [];
+                if (punches.some(p => p >= '15:00')) hasEveningPunch = true;
+                if (punches.some(p => p >= '10:00' && p < '15:00')) hasDaytimeOut = true;
             }
+
             let earliestLineIn = null;
             for (const ld of empLds) {
-                if (ld.lineIn && (!earliestLineIn || ld.lineIn < earliestLineIn)) {
-                    earliestLineIn = ld.lineIn;
+                if (ld.lineIn) {
+                    if (!earliestLineIn || ld.lineIn < earliestLineIn) {
+                        earliestLineIn = ld.lineIn;
+                    }
+                    if (ld.lineIn >= '15:00') hasEveningPunch = true;
+                    if (ld.lineIn >= '10:00' && ld.lineIn < '15:00') hasDaytimeOut = true;
+                }
+                if (ld.lineOut) {
+                    if (ld.lineOut >= '15:00') hasEveningPunch = true;
+                    if (ld.lineOut >= '10:00' && ld.lineOut < '15:00') hasDaytimeOut = true;
                 }
             }
+
             const firstIn = tempFpIn || earliestLineIn;
             
             if (!isNight) {
                 if (firstIn && firstIn >= '15:00') {
-                    isNight = true;
+                    isNight = true; // Assigned Day, worked Night
                 }
             } else {
-                if (firstIn && firstIn < '15:00') {
+                // Assigned Night, worked Day. Only switch if they actually have daytime hours (not just an early morning checkout from previous night)
+                if (firstIn && firstIn < '15:00' && !hasEveningPunch && hasDaytimeOut) {
                     isNight = false;
                 }
             }
